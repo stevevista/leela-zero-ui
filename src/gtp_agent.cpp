@@ -154,7 +154,7 @@ void GtpAgent::onGtpResult(int, bool success, const string& cmd, const string& r
 
 bool GtpAgent::alive() {
     int exit_status;
-    return !process_->try_get_exit_status(exit_status);
+    return process_ && !process_->try_get_exit_status(exit_status);
 }
 
 bool GtpAgent::support(const string& cmd) {
@@ -273,6 +273,18 @@ static string move_to_text(int move, const int board_size) {
     return result.str();
 }
 
+
+void GtpAgent::board_size(int bdsize) {
+    
+    send_command("board_size " + to_string(bdsize), [bdsize, this](bool success, const string&) {
+
+        if (success) {
+            board_size_ = bdsize;
+        }
+
+    });
+}
+
 void GtpAgent::generate_move(bool black_move, function<void(int)> handler) {
 
     send_command(black_move ? "genmove b" : "genmove w", [handler, this](bool success, const string& rsp) {
@@ -324,8 +336,11 @@ GameAdvisor::GameAdvisor(const string& cmdline, const string& path)
 void GameAdvisor::think(bool black_move) {
 
     events_.push("think;");
+    pending_genmove_ = true;
 
-    generate_move(black_move, [black_move, this](int move){
+    generate_move(black_move, [black_move, this](int move) {
+
+        pending_genmove_ = false;
         if (!pending_reset_) {
             string player = black_move ? "b;" : "w;";
             events_.push("think_end;");
@@ -415,9 +430,12 @@ void GameAdvisor::place(bool black_move, int pos) {
         history_.push_back(pos);
     }
 
-    play(black_move, pos, [this](int ret) {
+    play(black_move, pos, [black_move, this](int ret) {
         if (ret != 0)
             throw std::runtime_error("unexpected play result " + to_string(ret));
+
+        if (my_side_is_black_ == !black_move)
+            think(my_side_is_black_);
     });
 }
 
@@ -431,6 +449,8 @@ void GameAdvisor::reset() {
         reset_vars();
 
         events_.push("reset;");
+
+        think(true);
     });
     pending_reset_ = true;
 }
@@ -460,8 +480,10 @@ bool GameAdvisor::restore(int secs) {
 void GameAdvisor::reset_vars() {
     while (!events_.empty()) events_.try_pop();
     history_.clear();
+    pending_genmove_ = false;
     pending_reset_ = false;
     commit_pending_ = false;
+    my_side_is_black_ = true;
 }
 
 bool GameAdvisor::wait_till_ready(int secs) {
@@ -473,4 +495,12 @@ bool GameAdvisor::wait_till_ready(int secs) {
             break;
     }
     return isReady();
+}
+
+void GameAdvisor::hint() {
+    if (pending_genmove_ || history_.empty())
+        return;
+
+    my_side_is_black_ = !last_player_;
+    think(my_side_is_black_);
 }

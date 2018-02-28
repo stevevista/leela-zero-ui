@@ -15,6 +15,7 @@ public:
 
     GtpAgent(const string& cmdline="", const string& path="");
 
+    void execute(const string& cmdline, const string& path="");
     bool alive();
     bool isReady();
     bool support(const string& cmd);
@@ -31,13 +32,14 @@ public:
     static constexpr int resign_move = -2;
     static constexpr int invalid_move = -100;
     static constexpr int cmd_fail = -101;
-    static constexpr int cmd_unsupport = -102;
 
+
+    void board_size(int bdsize);
     void generate_move(bool black_move, function<void(int)> handler);
     void play(bool black_move, int pos, function<void(int)> handler=nullptr);
     void undo(function<void(int)> handler=nullptr);
     void quit();
-    void execute(const string& cmdline, const string& path="");
+    
 
 private:
     void clean_command_queue();
@@ -70,21 +72,27 @@ private:
 
 class GameAdvisor : public GtpAgent {
 public:
-    GameAdvisor(const string& cmdline, const string& path="");
+    GameAdvisor(const string& cmdline="", const string& path="");
 
     function<void(bool,int)> onThinkMove;
     
     void reset();
-    void think(bool black_move);
+    void hint();
     void place(bool black_move, int pos);
     void pop_events();
     bool restore(int secs=10);
     bool wait_till_ready(int secs=10);
 
+protected:
+    bool my_side_is_black_;
+
+    void think(bool black_move);
+
 private:
     void reset_vars();
 
     safe_queue<string> events_;
+    std::atomic<bool> pending_genmove_{false};
     std::atomic<bool> pending_reset_{false};
 
     std::vector<int> history_;
