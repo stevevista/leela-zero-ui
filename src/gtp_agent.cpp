@@ -36,17 +36,17 @@ inline vector<string> split_str(const string& name, char delim, bool strip=true)
 
 
 GtpAgent::GtpAgent(const string& cmdline, const string& path)
-: command_line_(cmdline)
-, path_(path)
 {
-    execute();
+    if (!cmdline.empty())
+        execute(cmdline, path);
 }
 
-void GtpAgent::execute() {
+void GtpAgent::execute(const string& cmdline, const string& path) {
 
-    while (!command_queue_.empty())
-        command_queue_.try_pop();
+    command_line_ = cmdline;
+    path_ = path;
 
+    clean_command_queue();
     support_commands_.clear();
     ready_ = false;
     ready_query_made_ = false; 
@@ -111,22 +111,23 @@ void GtpAgent::execute() {
     }, nullptr, true);
 
 
-    sendCommand("protocol_version", false);
-    sendCommand("name", false);
-    sendCommand("version", false);
-    sendCommand("list_commands", false);
+    send_command("protocol_version");
+    send_command("name");
+    send_command("version");
+    send_command("list_commands");
 }
 
 bool GtpAgent::isReady() {
     return ready_;
 }
 
-void GtpAgent::onGtpResult(int id, bool success, const string& cmd, const string& rsp) {
+void GtpAgent::onGtpResult(int, bool success, const string& cmd, const string& rsp) {
 
     if (!ready_query_made_) {
 
         if (!success) {
             kill();
+            clean_command_queue();
             return;
         }
 
@@ -161,27 +162,46 @@ bool GtpAgent::support(const string& cmd) {
     return find(support_commands_.begin(), support_commands_.end(), cmd) != support_commands_.end();   
 }
 
-bool GtpAgent::sendCommand(const string& cmd, bool check_exists, function<void(bool, const string&)> handler) {
 
-    if (!alive())
-        return false;
+void GtpAgent::clean_command_queue() {
 
-    if (check_exists) {
-        auto check_cmd = cmd;
-        auto pos = check_cmd.find(' ');
-        if (pos != string::npos)
-            check_cmd = check_cmd.substr(0, pos);
+    command_t cmd;
+    while (command_queue_.try_pop(cmd)) {
+        if (cmd.handler)
+            cmd.handler(false, "not active");
+    }
+}
 
-        if (!support(check_cmd))
-            return false;
+void GtpAgent::send_command(const string& cmd, function<void(bool, const string&)> handler) {
+
+    if (!alive()) {
+        if (handler) {
+            handler(false, "not active");
+        }
+        return;
     }
 
     std::lock_guard<std::mutex> lk(mtx_);  
     command_queue_.push({cmd, handler});
     process_->write(cmd+"\n");
-    return true;
 }
 
+string GtpAgent::send_command_sync(const string& cmd, bool& success) {
+
+    std::condition_variable cond;
+    string ret;
+    send_command(cmd, [&success, &cond, &ret](bool ok, const string& out) {
+
+        success = ok;
+        ret = out;
+        cond.notify_one();
+    });
+
+    std::mutex m;
+    std::unique_lock<std::mutex> lk(m);
+    cond.wait(lk);  
+    return ret;
+}
 
 void GtpAgent::kill() {
     if (alive()) 
@@ -255,16 +275,14 @@ static string move_to_text(int move, const int board_size) {
 
 void GtpAgent::generate_move(bool black_move, function<void(int)> handler) {
 
-    if (!sendCommand(black_move ? "genmove b" : "genmove w", true, [handler, this](bool success, const string& rsp) {
+    send_command(black_move ? "genmove b" : "genmove w", [handler, this](bool success, const string& rsp) {
 
         if (!success) handler(cmd_fail);
         else {
             handler(text_to_move(rsp, board_size_));
         }
 
-    })) {
-        handler(cmd_unsupport);
-    }
+    });
 }
 
 
@@ -279,28 +297,24 @@ void GtpAgent::play(bool black_move, int pos, function<void(int)> handler) {
     string cmd = black_move ? "play b " : "play w ";
     cmd += mtext;
 
-    if (!sendCommand(cmd, true, [handler, this](bool success, const string&) {
+    send_command(cmd, [handler, this](bool success, const string&) {
 
         if (handler) handler(success ? 0 : cmd_fail);
 
-    })) {
-        if (handler) handler(cmd_unsupport);
-    }
+    });
 }
 
 void GtpAgent::undo(function<void(int)> handler) {
 
-    if (!sendCommand("undo", true, [handler, this](bool success, const string&) {
+    send_command("undo", [handler, this](bool success, const string&) {
 
         if (handler) handler(success ? 0 : cmd_fail);
 
-    })) {
-        if (handler) handler(cmd_unsupport);
-    }
+    });
 }
 
 void GtpAgent::quit() {
-    sendCommand("quit", false);
+    send_command("quit");
 }   
 
 GameAdvisor::GameAdvisor(const string& cmdline, const string& path)
@@ -410,13 +424,13 @@ void GameAdvisor::place(bool black_move, int pos) {
 
 void GameAdvisor::reset() {
 
-    sendCommand("clear_board", false, [this](bool success, const string&) {
+    send_command("clear_board", [this](bool success, const string&) {
 
         if (!success) throw std::runtime_error("unexpected clear_board result ");
         
-        history_.clear();
-        pending_reset_ = false;
-        commit_pending_ = false;
+        reset_vars();
+
+        events_.push("reset;");
     });
     pending_reset_ = true;
 }
@@ -424,15 +438,14 @@ void GameAdvisor::reset() {
 bool GameAdvisor::restore(int secs) {
 
     if (!alive()) {
-        execute();
+        execute(command_line_, path_);
 
         if (!wait_till_ready(secs))
             return false;
 
         bool player = true;
         auto steps = history_;
-        pending_reset_ = false;
-        commit_pending_ = false;
+        reset_vars();
 
         for (auto m : steps) {
             place(player, m);
@@ -444,6 +457,12 @@ bool GameAdvisor::restore(int secs) {
     return true;
 }
 
+void GameAdvisor::reset_vars() {
+    while (!events_.empty()) events_.try_pop();
+    history_.clear();
+    pending_reset_ = false;
+    commit_pending_ = false;
+}
 
 bool GameAdvisor::wait_till_ready(int secs) {
 

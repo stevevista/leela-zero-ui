@@ -13,12 +13,13 @@ public:
     function<void(const string& line)> onOutput;
     function<void(const string& line)> onUnexpectOutput;
 
-    GtpAgent(const string& cmdline, const string& path="");
+    GtpAgent(const string& cmdline="", const string& path="");
 
     bool alive();
     bool isReady();
     bool support(const string& cmd);
-    bool sendCommand(const string& cmd, bool check_exists, function<void(bool, const string&)> handler=nullptr);
+    void send_command(const string& cmd, function<void(bool, const string&)> handler=nullptr);
+    string send_command_sync(const string& cmd, bool& success);
 
     void kill();
     int join() {
@@ -36,14 +37,17 @@ public:
     void play(bool black_move, int pos, function<void(int)> handler=nullptr);
     void undo(function<void(int)> handler=nullptr);
     void quit();
-
-protected:
-    void execute();
+    void execute(const string& cmdline, const string& path="");
 
 private:
+    void clean_command_queue();
     void onGtpResult(int id, bool success, const string& cmd, const string& rsp);
     
+protected:
+    string command_line_;
+    string path_;
 
+private:
     shared_ptr<Process> process_;
     struct command_t {
         string cmd;
@@ -58,9 +62,6 @@ private:
     string name_;
     string version_;
     int board_size_{19};
-
-    const string command_line_;
-    const string path_;
 
     string recvbuffer_;
     mutable std::mutex mtx_;   
@@ -81,6 +82,8 @@ public:
     bool wait_till_ready(int secs=10);
 
 private:
+    void reset_vars();
+
     safe_queue<string> events_;
     std::atomic<bool> pending_reset_{false};
 
