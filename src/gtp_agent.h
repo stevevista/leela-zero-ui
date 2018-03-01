@@ -26,6 +26,8 @@ public:
     bool support(const string& cmd);
     bool next_move_is_black() const;
 
+    int boardsize() const { return board_size_; }
+
     void send_command(const string& cmd, function<void(bool, const string&)> handler=nullptr);
     string send_command_sync(const string& cmd, bool& success);
 

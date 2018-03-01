@@ -2,14 +2,13 @@
 
 
 #include "../gtp_agent.h"
-//#include "../train_data/convert.hpp"
-
-
+#include "../train_data/archive.hpp"
 #include <fstream>
 #include <cassert>
 #include <cstring>
 #include <sstream>
 #include <csignal>
+#include <iostream>
 
 using namespace std;
 
@@ -19,25 +18,6 @@ using namespace std;
 
 
 static int opt_games = -1;
-static std::string opt_b_player;
-static std::string opt_w_player;
-
-void parse_commandline( int argc, char **argv ) {
-    for (int i = 1; i < argc; i++) { 
-        std::string opt = std::string(argv[i]);
-
-        if (opt == "--games") {
-            opt_games = atoi(argv[++i]);
-        }
-        else if (opt == "--black") {
-            opt_b_player = argv[++i];
-        }
-        else if (opt == "--white") {
-            opt_w_player = argv[++i];
-        }
-    }
-}
-
 
 
 GtpAgent* black_ptr = nullptr;
@@ -48,9 +28,50 @@ go_window* window_ptr = nullptr;
 
 int main(int argc, char **argv) {
 
-    parse_commandline(argc, argv);
+    string selfpath = argv[0];
+    
+    auto pos  = selfpath.rfind(
+        #ifdef _WIN32
+        '\\'
+        #else
+        '/'
+        #endif
+        );
 
-    GtpAgent black("something");
+    selfpath = selfpath.substr(0, pos); 
+
+    string append;
+    string cmdline1, cmdline2;
+
+    for (int i=1; i<argc; i++) {
+        string opt = argv[i];
+
+        if (opt == "--pass") {
+            i++;
+            for (; i<argc; i++) {
+                append += " ";
+                append += argv[i];
+            }
+            break;
+        }
+
+        if (opt == "--player") {
+            if (cmdline1.empty())
+                cmdline1 = argv[++i];
+            else if (cmdline2.empty())
+                cmdline2 = argv[++i];
+            else {
+                ++i;
+            }
+        }
+        else if (opt == "--games") {
+            opt_games = atoi(argv[++i]);
+        }
+    }
+
+
+    GtpAgent black;
+    GtpAgent white;
 
     black.onInput = [](const string& line) {
         cout << line << endl;;
@@ -60,8 +81,29 @@ int main(int argc, char **argv) {
         cout << line;
     };
 
+
+    if (cmdline1.empty() && cmdline2.empty()) {
+        std::cerr << "no player" << std::endl;
+        return -1;
+    }
+
+    cmdline1 += append;
     black_ptr = &black;
-    white_ptr = nullptr;
+    black_ptr->execute(cmdline1, selfpath);
+    if (!black_ptr->wait_till_ready()) {
+        std::cerr << "cannot start player 1" << std::endl;
+        return -1;
+    }
+
+    if (!cmdline2.empty()) {
+        cmdline2 += append;
+        white_ptr = &white;
+        white_ptr->execute(cmdline2, selfpath);
+        if (!white_ptr->wait_till_ready()) {
+            std::cerr << "cannot start player 2" << std::endl;
+            return -1;
+        }
+    }
 
 #ifndef NO_GUI_SUPPORT
     go_window my_window(19);
@@ -75,7 +117,7 @@ int main(int argc, char **argv) {
         window_ptr->close_window();
 #endif
         black_ptr->quit();
-        white_ptr->quit();
+        if (white_ptr) white_ptr->quit();
     };
 
    sigIntHandler.sa_handler = (__sighandler_t)my_handler;
@@ -84,14 +126,15 @@ int main(int argc, char **argv) {
 
    sigaction(SIGINT, &sigIntHandler, NULL);
 
-    GoBoard board(19);
+    GoBoard board;
 
     int game_count = 0;
+    const int boardsize = 19;
     
- //   GameArchive::Writer writer;
-//    writer.create("selfplay.data", FastBoard::get_boardsize());
+    GameArchive::Writer writer;
+    writer.create("selfplay.data", boardsize);
 
-    while (game_count++ < opt_games && black_ptr->alive()) {
+    while ((opt_games < 0 || game_count++ < opt_games) && black_ptr->alive()) {
 
         bool ok;
 
@@ -101,10 +144,10 @@ int main(int argc, char **argv) {
         bool last_is_pass = false;
         int winner = 0;
 
-        board.reset();
-        me->send_command_sync("clear_board", ok);
-        if (me != other)
-            other->send_command_sync("clear_board", ok);
+        board.reset(boardsize);
+        black_ptr->send_command_sync("clear_board", ok);
+        if (white_ptr)
+            white_ptr->send_command_sync("clear_board", ok);
 
 #ifndef NO_GUI_SUPPORT
         my_window.update(-1, board);
@@ -128,11 +171,7 @@ int main(int argc, char **argv) {
             } else
                 last_is_pass = false;
 
-            other->send_command_sync((black_to_move ? "play b " : "play w ") + vtx, ok);
-            if (!ok)
-                throw runtime_error("unexpect error while play");
-
-            
+        
             auto move = me->text_to_move(vtx);
             std::vector<int> removed;
             if (move >= 0) {  
@@ -159,16 +198,24 @@ int main(int argc, char **argv) {
 
             // generate move seq
             int move_val = move;
-            //if (move_val < 0) move_val = boardsq;
-            //writer.add_move(move_val, removed, probs, !probs.empty());
+            if (move_val < 0) move_val = boardsize*boardsize;
+            writer.add_move(move_val, probs, !probs.empty());
 
+            if (other) {
+                other->send_command_sync((black_to_move ? "play b " : "play w ") + vtx, ok);
+                if (!ok)
+                    throw runtime_error("unexpect error while play");
+
+                auto tmp = me;
+                me = other;
+                other = tmp;
+            }
 
             black_to_move = !black_to_move;
-            auto tmp = me;
-            me = other;
-            other = tmp;
         }
 
+        std::cout << "game over" << std::endl;
+ 
         // a game is over 
         if (winner == 0) {
             auto rsp = black_ptr->send_command_sync("final_score", ok);
@@ -179,20 +226,21 @@ int main(int argc, char **argv) {
             }
         }
 
-        // writer.end_game(result);
+        writer.end_game(winner);
     }
 
 #ifndef NO_GUI_SUPPORT
     my_window.close_window();
-#endif
+#else
     black_ptr->quit();
-    white_ptr->quit();
+    if (white_ptr) white_ptr->quit();
+#endif
 
 #ifndef NO_GUI_SUPPORT
     my_window.wait_until_closed();
 #endif
 
-    // writer.close();
+    writer.close();
 
     return 0;
 }

@@ -1,4 +1,4 @@
-#include "convert.hpp"
+#include "archive.hpp"
 #include "sgf.hpp"
 #include <algorithm>
 #include <iostream>
@@ -26,7 +26,7 @@ bool GameArchive::Writer::create(const std::string& path, const int board_size) 
     ofs_.write("G", 1);
     char c = (char)board_size;
     ofs_.write(&c, 1);
-
+    board_size_ = board_size;
     return true;
 }
 
@@ -34,6 +34,9 @@ void GameArchive::Writer::start_game() {
 
     buffer_.clear();
     move_count_ = 0;
+    board_.reset(board_size_);
+    game_valid_ = true;
+    color_ = 1;
 
     buffer_.emplace_back('g');
 
@@ -46,9 +49,15 @@ void GameArchive::Writer::start_game() {
 
 int GameArchive::Writer::end_game(int result) {
 
+    if (!game_valid_) {
+        std::cerr << "game sequences discard (invalid moves)" << std::endl;
+        return 0;
+    }
+
     buffer_[1] = (char)result;
     std::memcpy(&buffer_[2], &move_count_, 2);
     ofs_.write(&buffer_[0], buffer_.size());
+    game_valid_ = false;
     return buffer_.size();
 }
 
@@ -68,7 +77,18 @@ void GameArchive::Writer::push_float(float v) {
 }
 
 
-void GameArchive::Writer::add_move(const int move, const std::vector<int>& removes, const std::vector<float>& probs, bool valid) {
+void GameArchive::Writer::add_move(const int move, const std::vector<float>& probs, bool valid) {
+
+    if (!game_valid_) {
+        return;
+    }
+
+    std::vector<int> removes;
+    // test it 
+    if (!board_.update_board(color_, move, removes)) {
+        game_valid_ = false;
+        return;
+    }
 
     unsigned short move_val = move;
     if (removes.size()) move_val |= 0x8000;
@@ -88,6 +108,7 @@ void GameArchive::Writer::add_move(const int move, const std::vector<int>& remov
             push_float(p);
     }
 
+    color_ = -color_;
     move_count_++;
 }
 
@@ -111,26 +132,19 @@ static void proceed_moves(GameArchive::Writer& writer, int result, std::vector<i
     if (tree_moves.size() < move_count_thres)
         return;
 
-    GoBoard b(expect_boardsize);
-    int color = 1;
-
     writer.start_game();
 
     for (auto idx : tree_moves) {
+        writer.add_move(idx, {});
+    }
 
-        if (!b.valid_move(idx))
-            return;
+    int wrt_size = writer.end_game(result);
 
-        std::vector<int> removed;
-        b.update_board(color, idx, removed);
-
-        writer.add_move(idx, removed, {});
-        color = -color;
+    if (wrt_size == 0) {
+        return; // invalid game
     }
 
     int move_count = tree_moves.size();
-    int wrt_size = writer.end_game(result);
-    
     total_moves += move_count;
     total_size += wrt_size;
 
@@ -356,18 +370,8 @@ void GameArchive::generate(const std::string& path, const std::string& out_path,
     writer.close();
 }
 
-GameArchive::GameArchive(const int bsize)
-: boardsize_(bsize)
-{
-    data_index = 0;
-}
 
-int GameArchive::load(const std::string& path, bool append) {
-
-    if (!append) {
-        games_.clear();
-        entries_.clear();
-    }
+int GameArchive::verify(const std::string& path) {
 
     std::ifstream ifs(path, std::ifstream::binary);
     if (!ifs)
@@ -392,8 +396,8 @@ int GameArchive::load(const std::string& path, bool append) {
     auto type = read_char();
     if (type != 'G') throw std::runtime_error("bad train data signature");
 
-    boardsize_ = (int)read_char();
-    std::cerr << "loading board size: " << boardsize_ << std::endl;
+    int boardsize = (int)read_char();
+    std::cerr << "loading board size: " << boardsize << std::endl;
     
     while (true) {
         char c;
@@ -408,160 +412,58 @@ int GameArchive::load(const std::string& path, bool append) {
         if (result !=0 && result !=1 && result != -1)
             throw std::runtime_error("bad game result");
 
-        game_t game;
-        game.result = result;
-        int game_index = games_.size();
+        int player = 1;
+
+        std::vector<int> board(boardsize*boardsize, 0);
 
         for (auto step = 0; step < steps; step++) {
 
-            move_t move;
-            move.pos = read_ushort();
+            auto move_val = read_ushort();
+            int pos = (int)(move_val&0x1ff);
 
-
-            if ((int)(move.pos&0x1ff) > boardsize_*boardsize_) {
-                throw std::runtime_error("invalid move pos: " + std::to_string(move.pos));
+            if (pos > boardsize*boardsize) {
+                throw std::runtime_error("invalid move pos: " + std::to_string(pos));
             }
 
-            if (move.pos & 0x8000) {
+            // place the stone 
+            if (pos < boardsize*boardsize) {
+                if (board[pos] != 0)
+                    throw std::runtime_error("board not empty on : " + std::to_string(pos));
+
+                board[pos] = player;
+            }
+
+            if (move_val & 0x8000) {
                 // has leadding remove stones
                 auto count = read_ushort();
-                for (int i=0; i<count; i++)
-                    move.removes.emplace_back(read_ushort());
+                for (int i=0; i<count; i++) {
+                    // remove stone 
+                    auto pos = read_ushort();
+                    if (pos >= boardsize*boardsize) {
+                        throw std::runtime_error("invalid removal pos: " + std::to_string(pos));
+                    }
+
+                    if (board[pos] != -player)
+                        throw std::runtime_error("unexpect removal on : " + std::to_string(pos));
+
+                    board[pos] = 0;
+                }
             }
 
-            if (move.pos & 0x4000) {
+            if (move_val & 0x4000) {
                 // has leadding distributions
-                int prob_size = boardsize_*boardsize_ + 1;
-                move.probs.resize(prob_size);
-                if (ifs.read((char*)&move.probs[0], prob_size*sizeof(float)).gcount() != prob_size*sizeof(float))
+                int prob_size = boardsize*boardsize + 1;
+                std::vector<float> probs(prob_size);
+                if (ifs.read((char*)&probs[0], prob_size*sizeof(float)).gcount() != prob_size*sizeof(float))
                     throw std::runtime_error("uncomplate move data (read disttribution)");
             }
 
-            game.seqs.emplace_back(move);
-            
-            if (!(move.pos & 0x2000)) {
-                entries_.push_back({game_index, step});
-            }
+            player = -player;
         }
 
-        games_.push_back(std::move(game));
         read_moves += steps;
     }
     
     ifs.close();
-
-    shuffle();
     return read_moves;
-}
-
-
-void GameArchive::shuffle() {
-    std::random_shuffle(entries_.begin(), entries_.end());
-}
-
-
-vector<MoveData> GameArchive::next_batch(int count, const int input_history, bool& rewinded) {
-    
-    vector<MoveData> out;
-    rewinded = false;
-
-    if (total_moves() == 0)
-        throw std::runtime_error("empty move archive");
-
-    while (out.size() < count) {
-
-        if (data_index >= total_moves()) {
-            data_index = 0;
-            rewinded = true;
-        }
-    
-        MoveData data;
-        extract_move(data_index++, input_history, data);
-        out.emplace_back(data);
-    }
-    
-    return std::move(out);
-}
-
-    
-void GameArchive::extract_move(const int index, const int input_history, MoveData& out) {
-
-    if (index < 0 || index >= entries_.size())
-        throw std::runtime_error("extract_move index error");
-
-    const int input_channels = input_history*2 + 2;
-
-    auto ind = entries_[index];
-
-    const int steps = ind.second;
-    const auto& game = games_[ind.first];
-    const auto& game_seq = game.seqs;
-    int result = game.result;
-
-    const bool to_move_is_black = (steps%2 == 0);
-    
-    
-    out.result = to_move_is_black ? result : -result;
-
-    // replay board
-    BoardPlane blacks;
-    BoardPlane whites;
-
-    out.input.resize(input_channels);
-
-    blacks = false;
-    whites = false;
-    for (auto& l : out.input)
-        l = false;
-
-    bool black_player = true;
-    for (int step = 0; step < steps; step++) {
-        
-        auto move = game_seq[step].pos;
-        auto pos = move & 0x1ff;
-
-        if (pos > boardsize_*boardsize_)
-            throw std::runtime_error("bad move pos " + std::to_string(pos));
-
-        auto& my_board = black_player ? blacks : whites;
-        auto& op_board = black_player ? whites : blacks;
-
-        if (pos == boardsize_*boardsize_) {
-            // pass
-        } else {
-            my_board[pos] = true;
-            if (game_seq[step].removes.size()) {
-                for (auto rmpos : game_seq[step].removes) {
-                    if (rmpos < 0 || rmpos >= boardsize_*boardsize_)
-                        throw std::runtime_error("bad rm move pos " + std::to_string(rmpos));
-                    op_board[rmpos] = false;
-                }
-            }
-        }
-
-        // copy history
-		int h = steps - step - 1;
-		if (h < input_history ) {
-            // collect white, black occupation planes
-            out.input[h] = to_move_is_black ? blacks : whites;
-            out.input[input_history + h] = to_move_is_black ? whites : blacks;
-		}
-
-        black_player = !black_player;
-    }
-
-
-    out.probs.resize(boardsize_*boardsize_+1, 0);
-
-    if (game_seq[steps].probs.size()) {
-        std::copy(game_seq[steps].probs.begin(), game_seq[steps].probs.end(), out.probs.begin());
-    } else {
-        const int cur_move = game_seq[steps].pos & 0x1ff;
-        out.probs[cur_move] = 1;
-    }
-
-    if (to_move_is_black)
-        out.input[input_channels - 2].set();
-    else
-        out.input[input_channels - 1].set();
 }

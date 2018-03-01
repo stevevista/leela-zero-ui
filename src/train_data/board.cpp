@@ -1,13 +1,13 @@
-#include "Board.h"
+#include "archive.hpp"
 #include <stdexcept>
 #include <cassert>
-
+#include <array>
 
 
 static std::array<std::vector<int>, 361> NEIGHBORS;
 static int init_boardsize = 0;
 
-void GoBoard::init_board(const int bsize) {
+static void init_board_global(const int bsize) {
 
     init_boardsize = bsize;
     for (int y=0; y<bsize; y++) {
@@ -23,12 +23,8 @@ void GoBoard::init_board(const int bsize) {
 }
 
 
-GoBoard::GoBoard(const int bsize) : boardsize(bsize) {
-
-    if (init_boardsize != bsize) {
-        init_board(bsize);
-    }
-    reset();
+GoBoard::GoBoard(const int bsize) {
+    reset(bsize);
 }
 
 class NeighborVistor {
@@ -46,24 +42,29 @@ public:
     }
 };
 
-void GoBoard::reset() {
+void GoBoard::reset(const int bsize) {
     
+    if (init_boardsize != bsize) {
+        init_board_global(bsize);
+    }
+    boardsize = bsize;
+
     for (int i = 0; i < boardsize*boardsize; i++) {
         stones[i] = 0;
     }
 }
 
-void GoBoard::update_board(const int color, const int i, std::vector<int>& removed) {
+bool GoBoard::update_board(const int color, const int i, std::vector<int>& removed) {
 
     if (i <0 || i > boardsize*boardsize || stones[i]) {
-        std::cout << i << std::endl;
-        std::cout << stones[i] << std::endl;
-        throw std::runtime_error("update board error");
+        std::cerr << i << std::endl;
+        std::cerr << stones[i] << std::endl;
+        return false;
     }
     
     // pass
     if (i == boardsize*boardsize)
-        return;
+        return true;
 
     stones[i] = color;
     stone_next[i] = i;
@@ -106,6 +107,8 @@ void GoBoard::update_board(const int color, const int i, std::vector<int>& remov
     if (group_libs[group_ids[i]] == 0) {
         remove_string(group_ids[i], removed);
     }
+
+    return true;
 }
 
 void GoBoard::remove_string(int i, std::vector<int>& removed) {

@@ -50,8 +50,8 @@ endif()
 
 SET(SELFPLAY_SRC
   src/selfplay/selfplay.cpp
-  src/train_data/Board.cpp
-  src/train_data/convert.cpp
+  src/train_data/board.cpp
+  src/train_data/archive.cpp
   src/train_data/sgf.cpp
   src/train_data/utils.cpp)
 
@@ -126,8 +126,8 @@ TARGET_LINK_LIBRARIES(selfplay ${CMAKE_THREAD_LIBS_INIT} ${needed_libraries})
 
 ADD_EXECUTABLE(gendata 
   src/train_data/gendata.cpp
-  src/train_data/Board.cpp
-  src/train_data/convert.cpp
+  src/train_data/board.cpp
+  src/train_data/archive.cpp
   src/train_data/sgf.cpp
   src/train_data/utils.cpp)
 

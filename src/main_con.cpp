@@ -2,55 +2,55 @@
 #include "gtp_agent.h"
 #include <iostream>
 
-void two_player(GtpAgent& black, GtpAgent& white) {
 
-    GtpAgent* me = &black;
-    GtpAgent* other = &white;
-    bool black_to_move = true;
-    bool last_is_pass = false;
+int main(int argc, char **argv) {
 
-    for (;;) {
-        bool ok;
-        auto vtx = me->send_command_sync(black_to_move ? "genmove b" : "genmove w", ok);
-        if (!ok)
-            throw runtime_error("unexpect error while genmove");
+    string selfpath = argv[0];
+    
+    auto pos  = selfpath.rfind(
+        #ifdef _WIN32
+        '\\'
+        #else
+        '/'
+        #endif
+        );
 
-        cout << (black_to_move ? "B " : "W ") << vtx << endl;
+    selfpath = selfpath.substr(0, pos); 
 
-        if (vtx == "resign") {
+
+    string append;
+    string cmdline;
+
+    for (int i=1; i<argc; i++) {
+        string opt = argv[i];
+
+        if (opt == "--pass") {
+            i++;
+            for (; i<argc; i++) {
+                append += " ";
+                append += argv[i];
+            }
             break;
         }
 
-        if (vtx == "pass") {
-            if (last_is_pass) 
-                break;
-            last_is_pass = true;
-        } else
-            last_is_pass = false;
-
-        other->send_command_sync((black_to_move ? "play b " : "play w ") + vtx, ok);
-        if (!ok)
-            throw runtime_error("unexpect error while play");
-
-        black_to_move = !black_to_move;
-        auto tmp = me;
-        me = other;
-        other = tmp;
+        if (opt == "--player") {
+            cmdline = argv[++i];
+        }
     }
-}
 
-int main() {
-
+    cmdline += append;
    // GameAdvisor agent1("/home/steve/dev/app/leelaz -w /home/steve/dev/data/weights.txt -g -p 1000");
    // GameAdvisor agent2("/home/steve/dev/app/leelaz -w /home/steve/dev/data/weights.txt -g -p 1000");
    // two_player(agent1, agent2);
    // return 0;
 
-    GameAdvisor agent("/home/lc/leelaz -w /home/lc/data/weights.txt -g -p 10 --noponder");
+    //"/home/lc/leelaz -w /home/lc/data/weights.txt -g -p 10 --noponder"
+    
+    GameAdvisor agent(cmdline, selfpath);
     //GameAdvisor agent("/home/steve/dev/app/leelaz -w /home/steve/dev/data/weights.txt -g");
     
     agent.onGtpIn = [](const string& line) {
-        cout << line << endl;;
+        cout << line << endl;
     };
 
     agent.onGtpOut = [](const string& line) {
@@ -61,21 +61,25 @@ int main() {
         agent.place(black, move);
     };
 
-    //agent.join();
-
+    // User player input
     std::thread([&]() {
 
 		while(true) {
 			std::string input_str;
 			getline(std::cin, input_str);
 
-            agent.send_command(input_str);
+            auto pos = agent.text_to_move(input_str);
+            if (pos != GtpAgent::invalid_move) {
+                agent.place(agent.next_move_is_black(), pos);
+            }
+            else
+                agent.send_command(input_str);
 		}
 
 	}).detach();
 
+    // computer play as BLACK
     agent.reset(true);
-
 
     while (true) {
         this_thread::sleep_for(chrono::microseconds(100));
@@ -84,16 +88,7 @@ int main() {
             break;
     }
 
-/*
-    this_thread::sleep_for(chrono::seconds(5));
-    agent.think(true);
-
-    agent.restore();
-*/
     agent.join();
-
-    
-
 
     return 0;
 }

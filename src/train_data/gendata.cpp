@@ -1,7 +1,7 @@
 
 
 
-#include "convert.hpp"
+#include "archive.hpp"
 #include <algorithm>
 
 static std::string opt_input = "../../data/sgfs/train";
@@ -30,9 +30,8 @@ int main(int argc, char **argv) {
     parse_commandline(argc, argv);
 
     if (opt_verify) {
-        GameArchive archive;
-        archive.load(opt_input, false);
-        std::cout << "total_moves: " << archive.total_moves() << std::endl;
+        auto total = GameArchive::verify(opt_input);
+        std::cout << "total_moves: " << total << std::endl;
         return 0;
     }
     GameArchive::generate(opt_input, opt_output, opt_size);

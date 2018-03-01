@@ -2,7 +2,7 @@
 
 #include "gui_core.h"
 #include "array2d.h"
-#include "../train_data/Board.h"
+#include "../train_data/archive.hpp"
 
 
 using namespace std;
