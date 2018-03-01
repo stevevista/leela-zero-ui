@@ -41,10 +41,7 @@ GtpAgent::GtpAgent(const string& cmdline, const string& path)
         execute(cmdline, path);
 }
 
-void GtpAgent::execute(const string& cmdline, const string& path) {
-
-    command_line_ = cmdline;
-    path_ = path;
+void GtpAgent::clear_vars() {
 
     clean_command_queue();
     support_commands_.clear();
@@ -52,6 +49,17 @@ void GtpAgent::execute(const string& cmdline, const string& path) {
     ready_query_made_ = false; 
     board_size_ = 19;
     recvbuffer_.clear(); 
+
+    handicaps_.clear();
+    history_moves_.clear();
+}
+
+void GtpAgent::execute(const string& cmdline, const string& path) {
+
+    command_line_ = cmdline;
+    path_ = path;
+
+    clear_vars();
 
     process_ = make_shared<Process>(command_line_, path_, [this](const char *bytes, size_t n) {
         
@@ -108,7 +116,10 @@ void GtpAgent::execute(const string& cmdline, const string& path) {
             }
         }
 
-    }, nullptr, true);
+    }, [this](const char *bytes, size_t n) {
+        if (onStderr)
+            onStderr(string(bytes, n));
+    }, true);
 
 
     send_command("protocol_version");
@@ -117,8 +128,15 @@ void GtpAgent::execute(const string& cmdline, const string& path) {
     send_command("list_commands");
 }
 
-bool GtpAgent::isReady() {
+bool GtpAgent::isReady() const {
     return ready_;
+}
+
+
+string GtpAgent::pending_command() {
+    command_t cmd;
+    command_queue_.try_peek(cmd);
+    return cmd.cmd;
 }
 
 void GtpAgent::onGtpResult(int, bool success, const string& cmd, const string& rsp) {
@@ -138,6 +156,7 @@ void GtpAgent::onGtpResult(int, bool success, const string& cmd, const string& r
             std::lock_guard<std::mutex> lk(mtx_); 
             support_commands_ = split_str(rsp, '\n'); 
             ready_ = true;
+            onReset();
         }
         else if (cmd == "protocol_version")
             protocol_version_ = rsp;
@@ -149,7 +168,69 @@ void GtpAgent::onGtpResult(int, bool success, const string& cmd, const string& r
         return;
     }
 
-    
+    if (success) {
+        if (cmd.find("boardsize") == 0) {
+
+            std::istringstream cmdstream(cmd);
+            std::string stmp;
+            int bdsize;
+
+            cmdstream >> stmp;  // eat boardsize
+            cmdstream >> bdsize;
+            board_size_ = bdsize;
+        }
+        else if (cmd.find("clear_board") == 0) {
+            handicaps_.clear();
+            history_moves_.clear();
+            onReset();
+        }
+        else if (cmd.find("play") == 0) {
+            std::istringstream cmdstream(cmd);
+            std::string tmp;
+            std::string color, vertex;
+
+            cmdstream >> tmp;   //eat play
+            cmdstream >> color;
+            cmdstream >> vertex;
+
+            bool is_black = color[0] == 'b';
+            auto pos = text_to_move(vertex);
+            history_moves_.push_back({is_black, pos});
+        }
+        else if (cmd.find("genmove") == 0 || cmd.find("kgs-genmove_cleanup") == 0) {
+            std::istringstream cmdstream(cmd);
+            std::string tmp;
+            std::string color;
+
+            cmdstream >> tmp;   //eat genmove
+            cmdstream >> color;
+
+            bool is_black = color[0] == 'b';
+            auto pos = text_to_move(rsp);
+            history_moves_.push_back({is_black, pos});
+        }
+        else if (cmd.find("undo") == 0) {
+            if (history_moves_.size())
+                history_moves_.erase(history_moves_.end()-1);
+        }
+        else if (cmd.find("handicap") != string::npos) {
+
+            // D3 D4 ...
+            std::istringstream cmdstream(rsp);
+            do {
+                std::string vertex;
+
+                cmdstream >> vertex;
+
+                if (!cmdstream.fail()) {
+                    auto pos = text_to_move(vertex);
+                    if (pos == invalid_move)
+                        break;
+                    handicaps_.push_back(pos);
+                }
+            } while (!cmdstream.fail());
+        }
+    }
 }
 
 bool GtpAgent::alive() {
@@ -181,9 +262,14 @@ void GtpAgent::send_command(const string& cmd, function<void(bool, const string&
         return;
     }
 
-    std::lock_guard<std::mutex> lk(mtx_);  
-    command_queue_.push({cmd, handler});
-    process_->write(cmd+"\n");
+    {
+        std::lock_guard<std::mutex> lk(mtx_);  
+        command_queue_.push({cmd, handler});
+        process_->write(cmd+"\n");
+    }
+
+    if (onInput)
+        onInput(cmd);
 }
 
 string GtpAgent::send_command_sync(const string& cmd, bool& success) {
@@ -209,7 +295,7 @@ void GtpAgent::kill() {
 }
 
 
-static int text_to_move(const string& vertex, const int board_size) {
+int GtpAgent::text_to_move(const string& vertex) const {
 
     if (vertex == "pass" || vertex == "PASS") return GtpAgent::pass_move;
     else if (vertex == "resign" || vertex == "RESIGN") return GtpAgent::resign_move;
@@ -241,11 +327,11 @@ static int text_to_move(const string& vertex, const int board_size) {
     parsestream >> row;
     row--;
 
-    if (row >= board_size || column >= board_size) {
+    if (row >= board_size_ || column >= board_size_) {
         return GtpAgent::invalid_move;
     }
 
-    auto move = row * board_size + column;
+    auto move = row * board_size_ + column;
     return move;
 }
 
@@ -274,119 +360,166 @@ static string move_to_text(int move, const int board_size) {
 }
 
 
-void GtpAgent::board_size(int bdsize) {
-    
-    send_command("board_size " + to_string(bdsize), [bdsize, this](bool success, const string&) {
 
-        if (success) {
-            board_size_ = bdsize;
-        }
+bool GtpAgent::wait_till_ready(int secs) {
 
-    });
+    int passed = 0;
+    while (!isReady()) {
+        this_thread::sleep_for(chrono::seconds(1));
+        if (passed++ >= secs)
+            break;
+    }
+    return isReady();
 }
 
-void GtpAgent::generate_move(bool black_move, function<void(int)> handler) {
+bool GtpAgent::restore(int secs) {
 
-    send_command(black_move ? "genmove b" : "genmove w", [handler, this](bool success, const string& rsp) {
+    if (!alive()) {
 
-        if (!success) handler(cmd_fail);
-        else {
-            handler(text_to_move(rsp, board_size_));
+        auto handicaps = handicaps_;
+        auto history_moves = history_moves_;
+        auto bdsize = board_size_;
+
+        execute(command_line_, path_);
+        onReset();
+
+        if (!wait_till_ready(secs))
+            return false;
+
+        send_command("boardsize " + to_string(bdsize));
+
+        for (auto pos : handicaps) {
+            send_command("set_free_handicap " + move_to_text(pos, bdsize));
         }
 
-    });
-}
-
-
-void GtpAgent::play(bool black_move, int pos, function<void(int)> handler) {
-
-    auto mtext = move_to_text(pos, board_size_);
-    if (mtext.empty()) {
-        if (handler) handler(GtpAgent::invalid_move);
-        return;
+        for (auto& m : history_moves)
+            send_command("play " + string(m.is_black? "b " :"w ") + move_to_text(m.pos, bdsize));
     }
 
-    string cmd = black_move ? "play b " : "play w ";
-    cmd += mtext;
-
-    send_command(cmd, [handler, this](bool success, const string&) {
-
-        if (handler) handler(success ? 0 : cmd_fail);
-
-    });
-}
-
-void GtpAgent::undo(function<void(int)> handler) {
-
-    send_command("undo", [handler, this](bool success, const string&) {
-
-        if (handler) handler(success ? 0 : cmd_fail);
-
-    });
+    return true;
 }
 
 void GtpAgent::quit() {
     send_command("quit");
 }   
 
+bool GtpAgent::next_move_is_black() const {
+
+    return (handicaps_.empty() && history_moves_.empty()) ||
+            (history_moves_.size() && !history_moves_.back().is_black);
+}
+
+
+
 GameAdvisor::GameAdvisor(const string& cmdline, const string& path)
 : GtpAgent(cmdline, path)
-{}
+{
+    onInput = [this](const string& line) {
+        events_.push("input;" + line);
+    };
+    onOutput = [this](const string& line) {
+        events_.push("output;" + line);
+    };
+}
+
+void GameAdvisor::onReset() {
+
+    reset_vars();
+
+    events_.push("reset;");
+}
 
 void GameAdvisor::think(bool black_move) {
 
     events_.push("think;");
-    pending_genmove_ = true;
 
-    generate_move(black_move, [black_move, this](int move) {
+    send_command(black_move ? "genmove b" : "genmove w", [black_move, this](bool success, const string& rsp) {
 
-        pending_genmove_ = false;
+        if (!success)
+            return;
+
+        int move = text_to_move(rsp);
+        if (move == invalid_move)
+            throw std::runtime_error("unexpected mvoe " + to_string(move));
+
         if (!pending_reset_) {
+
             string player = black_move ? "b;" : "w;";
             events_.push("think_end;");
             if (move == pass_move)
                 events_.push("pass;" + player);
             else if (move == resign_move)
                 events_.push("resign;" + player);
-            else if (move >= 0) {
+            else {
                 std::stringstream ss;
                 ss << "move;";
                 ss << player;
                 ss << move << ";";
                 events_.push(ss.str());
-            } else {
-                throw std::runtime_error("unexpected mvoe " + to_string(move));
             }
 
-            {
-                std::lock_guard<std::mutex> lk(hmtx_);  
-                if (history_.size() && last_player_ == black_move) {
-                    int last_move = history_.back();
-                    if (last_move != move) {
-                        // correct the actual move
-                        // duplicated move
-                        undo();
-                        undo();
-        
-                        play(black_move, last_move, [this](int ret) {
-                            if (ret != 0)
-                                throw std::runtime_error("unexpected play result " + to_string(ret));
-                        });
-
-                    } else {
-                        // as expected
-                        // no need do anything
-                    }
-                }
-                else {
-                    commit_pending_ = true;
-                    last_player_ = black_move;
-                    history_.push_back(move);
-                }
-            }
+            commit_pending_ = true;
+            commit_player_ = black_move;
+            commit_pos_ = move;
         }
     });
 }
+
+void GameAdvisor::place(bool black_move, int pos) {
+
+    events_.push("update_board;");
+
+    if (commit_pending_) {
+
+        commit_pending_ = false;
+
+        if (black_move == commit_player_ &&
+            pos == commit_pos_) {
+            return;
+        }
+
+        send_command("undo"); // not my turn or not play as sugessed, undo genmove
+    }
+
+    put_stone(black_move, pos);
+}
+
+void GameAdvisor::put_stone(bool black_move, int pos) {
+
+    auto mtext = move_to_text(pos, board_size_);
+    if (mtext.empty()) {
+        // if (handler) handler(GtpAgent::invalid_move);
+        return;
+    }
+
+    string cmd = black_move ? "play b " : "play w ";
+    cmd += mtext;
+
+    send_command(cmd, [black_move, pos, this](bool success, const string&) {
+
+        if (!success) return; // throw std::runtime_error("unexpected play result " + to_string(ret));
+
+        if (!pending_reset_) {
+
+            if (commit_pending_) {
+                commit_pending_ = false;
+
+                // duplicated !!!
+                // someone play the stone before think return 
+                send_command("undo");  // undo myself
+                send_command("undo");  // undo genmove
+                // replay myself
+                put_stone(black_move, pos);
+                return;
+            }
+
+            if (my_side_is_black_ == !black_move)
+                think(my_side_is_black_);
+        }
+    });
+}
+
+
 
 void GameAdvisor::pop_events() {
 
@@ -399,108 +532,60 @@ void GameAdvisor::pop_events() {
             if (onThinkMove)
 				onThinkMove(black_move, move);
         }
-    }
-}
-
-void GameAdvisor::place(bool black_move, int pos) {
-
-    if (commit_pending_) {
-
-        commit_pending_ = false;
-
-        if (black_move == last_player_) {
-            if (pos == history_.back()) {
-                // as expected 
-                return;
-            } else {
-                undo();
-                std::lock_guard<std::mutex> lk(hmtx_);  
-                history_.erase(history_.end()-1);
-            }
-        } else {
-            undo(); // not my turn
-            std::lock_guard<std::mutex> lk(hmtx_);  
-            history_.erase(history_.end()-1);
+        else if (params[0] == "pass") {
+            if (onThinkPass)
+                onThinkPass();
+        }
+        else if (params[0] == "resign") {
+            if (onThinkResign)
+                onThinkResign();
+        }
+        else if (params[0] == "think") {
+            if (onThinkBegin)
+                onThinkBegin();
+        }
+        else if (params[0] == "think_end") {
+            if (onThinkEnd)
+                onThinkEnd();
+        }
+        else if (params[0] == "input") {
+            if (onGtpIn)
+                onGtpIn(ev.substr(6));
+        }
+        else if (params[0] == "output") {
+            if (onGtpOut)
+                onGtpOut(ev.substr(7));
+        }
+        else if (params[0] == "update_board") {
+            if (onMoveChange)
+                onMoveChange();
         }
     }
-
-    {
-        std::lock_guard<std::mutex> lk(hmtx_);  
-        last_player_ = black_move;
-        history_.push_back(pos);
-    }
-
-    play(black_move, pos, [black_move, this](int ret) {
-        if (ret != 0)
-            throw std::runtime_error("unexpected play result " + to_string(ret));
-
-        if (my_side_is_black_ == !black_move)
-            think(my_side_is_black_);
-    });
 }
 
+void GameAdvisor::reset(bool my_side) {
 
-void GameAdvisor::reset() {
-
-    send_command("clear_board", [this](bool success, const string&) {
-
-        if (!success) throw std::runtime_error("unexpected clear_board result ");
-        
-        reset_vars();
-
-        events_.push("reset;");
-
-        think(true);
-    });
+    send_command("clear_board");
     pending_reset_ = true;
-}
 
-bool GameAdvisor::restore(int secs) {
-
-    if (!alive()) {
-        execute(command_line_, path_);
-
-        if (!wait_till_ready(secs))
-            return false;
-
-        bool player = true;
-        auto steps = history_;
-        reset_vars();
-
-        for (auto m : steps) {
-            place(player, m);
-            player = !player;
-        }
-
-    }
-
-    return true;
+    if (my_side)
+        hint();
 }
 
 void GameAdvisor::reset_vars() {
     while (!events_.empty()) events_.try_pop();
-    history_.clear();
-    pending_genmove_ = false;
     pending_reset_ = false;
     commit_pending_ = false;
     my_side_is_black_ = true;
 }
 
-bool GameAdvisor::wait_till_ready(int secs) {
-
-    int passed = 0;
-    while (!isReady()) {
-        this_thread::sleep_for(chrono::seconds(1));
-        if (passed++ >= secs)
-            break;
-    }
-    return isReady();
-}
 
 void GameAdvisor::hint() {
-    if (pending_genmove_ || history_.empty())
+
+    auto pending = pending_command();
+    if (commit_pending_ || pending.find("genmove ") == 0 || pending.find("play ") == 0)
         return;
 
-    my_side_is_black_ = !last_player_;
+    my_side_is_black_ = next_move_is_black();
     think(my_side_is_black_);
 }

@@ -141,7 +141,7 @@ INT_PTR CALLBACK Dialog::Proc(UINT uMsg, WPARAM wParam, LPARAM lParam) {
 		WORD wID = LOWORD(wParam);         // item, control, or accelerator identifier 
 
 		if (wID == IDC_BTN_PONDER) {
-			spy.stop_think();
+			//spy.stop_think();
 			return TRUE;
 		}
 
@@ -176,7 +176,20 @@ void Dialog::onInit() {
 	wndLabel_.create(hWnd_);
 
 	szMoves_[0] = 0;
-	spy.onGtp = [&](const std::string& line, bool is_rsp) {
+	spy.onGtpIn = [&](const std::string& line) {
+		//wndLabel_.hide();
+		//strcat(szMoves_, line.c_str());
+		//strcat(szMoves_, _T("\r\n"));
+		//SetDlgItemText(hWnd_, IDC_EDIT_STATUS, szMoves_);
+		auto str = line + "\r\n";
+
+		auto hEdit = GetDlgItem(hWnd_, IDC_EDIT_STATUS);
+		SendMessageA(hEdit, EM_SETSEL, 0, -1); //Select all
+		SendMessageA(hEdit, EM_SETSEL, -1, -1);//Unselect and stay at the end pos
+		SendMessageA(hEdit, EM_REPLACESEL, 0, (LPARAM)(str.c_str())); //append text to current pos and 
+	};
+	
+	spy.onGtpOut = [&](const std::string& line) {
 		//wndLabel_.hide();
 		//strcat(szMoves_, line.c_str());
 		//strcat(szMoves_, _T("\r\n"));
@@ -189,7 +202,7 @@ void Dialog::onInit() {
 		SendMessageA(hEdit, EM_REPLACESEL, 0, (LPARAM)(str.c_str())); //append text to current pos and 
 	};
 
-	spy.onThink = [&]() {
+	spy.onThinkBegin = [&]() {
 		EnableWindow(GetDlgItem(hWnd_, IDC_BTN_HINT), FALSE);
 		EnableWindow(GetDlgItem(hWnd_, IDC_BTN_PONDER), TRUE);
 	};
@@ -214,7 +227,7 @@ void Dialog::onInit() {
 			wndLabel_.show();
 	};
 
-	spy.onMoveChange = [&](char player, int move) {
+	spy.onMoveChange = [&]() {
 
 		wndLabel_.hide();
 /*
@@ -233,7 +246,7 @@ void Dialog::onInit() {
 		wndLabel_.update();
 	};
 
-	spy.onMovePredict = [&](int player, int move) {
+	spy.onThinkMove = [&](bool black_player, int move) {
 
 		bool autoplay = auto_play_;
 
@@ -247,11 +260,11 @@ void Dialog::onInit() {
 		wndLabel_.show();
 	};
 
-	spy.onMovePass = [&]() {
+	spy.onThinkPass = [&]() {
 		MessageBox(NULL, _T("PASS"), TEXT("spy"), MB_ICONINFORMATION);
 	};
 
-	spy.onResign = [&]() {
+	spy.onThinkResign = [&]() {
 		MessageBox(NULL, _T("RESIGN"), TEXT("spy"), MB_ICONINFORMATION);
 	};
 

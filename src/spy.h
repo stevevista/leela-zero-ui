@@ -4,9 +4,10 @@
 #include <tchar.h>
 #include <vector>
 #include <deque>
+#include <array>
 #include <functional>
 #include <thread>
-#include "../leela/GTP.h"
+#include "gtp_agent.h"
 
 
 class BoardSpy : public GameAdvisor {
@@ -14,6 +15,7 @@ public:
 	std::function<void()> onGtpReady;
 	std::function<void()> onSizeChanged;
 	std::function<void(int x, int y)> placeStone;
+	
 
 	BoardSpy();
 	~BoardSpy();

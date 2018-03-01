@@ -41,16 +41,24 @@ void two_player(GtpAgent& black, GtpAgent& white) {
 
 int main() {
 
-    GameAdvisor agent1("/home/steve/dev/app/leelaz -w /home/steve/dev/data/weights.txt -g -p 1000");
-    GameAdvisor agent2("/home/steve/dev/app/leelaz -w /home/steve/dev/data/weights.txt -g -p 1000");
-    two_player(agent1, agent2);
-    return 0;
+   // GameAdvisor agent1("/home/steve/dev/app/leelaz -w /home/steve/dev/data/weights.txt -g -p 1000");
+   // GameAdvisor agent2("/home/steve/dev/app/leelaz -w /home/steve/dev/data/weights.txt -g -p 1000");
+   // two_player(agent1, agent2);
+   // return 0;
 
-    //GameAdvisor agent("/home/lc/leelaz -w /home/lc/data/weights.txt -g -p 10 --noponder");
-    GameAdvisor agent("/home/steve/dev/app/leelaz -w /home/steve/dev/data/weights.txt -g");
+    GameAdvisor agent("/home/lc/leelaz -w /home/lc/data/weights.txt -g -p 10 --noponder");
+    //GameAdvisor agent("/home/steve/dev/app/leelaz -w /home/steve/dev/data/weights.txt -g");
     
-    agent.onOutput = [](const string& line) {
+    agent.onGtpIn = [](const string& line) {
+        cout << line << endl;;
+    };
+
+    agent.onGtpOut = [](const string& line) {
         cout << line;
+    };
+
+    agent.onThinkMove = [&](bool black, int move) {
+        agent.place(black, move);
     };
 
     //agent.join();
@@ -66,28 +74,19 @@ int main() {
 
 	}).detach();
 
-    bool ok;
-    std::cout << agent.send_command_sync("xxxxx", ok) << std::endl;
+    agent.reset(true);
 
-
-    agent.onThinkMove = [&](bool black, int move) {
-        cout << "-------------------------------" << endl;
-        cout << black << endl;
-        cout << move << endl;
-        agent.place(false, 0);
-    };
-/*
-    this_thread::sleep_for(chrono::seconds(5));
-    agent.think(true);
-    
 
     while (true) {
-        this_thread::sleep_for(chrono::seconds(1));
+        this_thread::sleep_for(chrono::microseconds(100));
         agent.pop_events();
-        //cout << agent.alive() << endl;
         if (!agent.alive())
             break;
     }
+
+/*
+    this_thread::sleep_for(chrono::seconds(5));
+    agent.think(true);
 
     agent.restore();
 */

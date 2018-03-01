@@ -36,12 +36,12 @@ BoardSpy::BoardSpy()
 , exit_(false)
 , placePos_(-1)
 {
-	std::fill(board_.begin(), board_.end(), FastBoard::EMPTY);
+	std::fill(board_.begin(), board_.end(), 0);
 }
 
 BoardSpy::~BoardSpy() {
 
-	deinit();
+	quit();
 
 	if (hDisplayDC_)
 		ReleaseDC(NULL, hDisplayDC_);
@@ -236,14 +236,14 @@ int BoardSpy::detectStone(const BYTE* DIBS, int move, bool& isLastMove) const {
 		}
 	}
 
-	int sel = FastBoard::EMPTY;
+	int sel = 0;
 
 	if (is_black) {
-		sel = FastBoard::BLACK;
+		sel = 1;
 		auto ratio = compareBoardRegionAt(DIBS, move, whiteImage_, lastMoveMaskData_);
 		isLastMove = (ratio > 0.9);
 	} else if (is_white) {
-		sel = FastBoard::WHITE;
+		sel = -1;
 		auto ratio = compareBoardRegionAt(DIBS, move, blackImage_, lastMoveMaskData_);
 		isLastMove = (ratio > 0.9);
 	}
@@ -496,7 +496,7 @@ bool BoardSpy::routineCheck() {
 		else {
 			board_age[idx]++;
 			if (board_age[idx] > thres) {
-				if (stone != FastBoard::EMPTY && board_last_[idx]== FastBoard::EMPTY) {
+				if (stone != 0 && board_last_[idx]== 0) {
 					candicates.push_back(idx);
 				}
 			}
@@ -509,7 +509,7 @@ bool BoardSpy::routineCheck() {
 		auto mOther = -1;
 		for (auto c : candicates) {
 			if (c == lastMove) mLast = c;
-			else if (board_[c] == turn_) mTurn = c;
+			else if (board_[c] == (next_move_is_black()?1:-1)) mTurn = c;
 			else mOther = c;
 		}
 
@@ -526,15 +526,15 @@ bool BoardSpy::routineCheck() {
 		board_last_[sel] = player;
 
 		for (int idx = 0; idx < 361; idx++) {
-			if (board_age[idx] > thres && board_[idx]== FastBoard::EMPTY) {
-				board_last_[idx] = FastBoard::EMPTY;
+			if (board_age[idx] > thres && board_[idx]== 0) {
+				board_last_[idx] = 0;
 			}
 		}
 
 		std::copy(board_last_.begin(), board_last_.end(), board_.begin());
 		memset(board_age, 0, sizeof(board_age));
 
-		play(player, sel);
+		place(player == 1, sel);
 	}
 
 	if (placeStoneClock_ > 0 && placeStoneClock_ < routineClock_) {
@@ -556,9 +556,9 @@ bool BoardSpy::initialBoard(HWND hWnd) {
 	int more_stones = 0;
 	int stone_counts = 0;
 	for (auto idx=0; idx<361; idx++) {
-		if (curBoard[idx] != FastBoard::EMPTY) {
+		if (curBoard[idx] != 0) {
 			stone_counts++;
-			if (board_[idx] == FastBoard::EMPTY)
+			if (board_[idx] == 0)
 				more_stones++;
 		}
 	}
@@ -571,11 +571,11 @@ bool BoardSpy::initialBoard(HWND hWnd) {
 		return false;
 
 	if (stone_counts <= 1) {
-		std::fill(board_.begin(), board_.end(), FastBoard::EMPTY);
-		std::fill(board_last_.begin(), board_last_.end(), FastBoard::EMPTY);
+		std::fill(board_.begin(), board_.end(), 0);
+		std::fill(board_last_.begin(), board_last_.end(), 0);
 		memset(board_age, 0, sizeof(board_age));
 	
-		reset(stone_counts == 1 ? FastBoard::WHITE : FastBoard::EMPTY);
+		reset(stone_counts == 1 ? false : true);
 	}
 
 	return true;
@@ -658,47 +658,18 @@ inline void trim(std::string &ss)
 
 void BoardSpy::init(const std::string& cfg_path) {
 	
-	GTP::setup_default_parameters();
-
-	HANDLE dir;
-    WIN32_FIND_DATAA file_data;
-	if ((dir = FindFirstFileA((cfg_path + "\\*").c_str(), &file_data)) == INVALID_HANDLE_VALUE) {
-		fatal("No weights found");
-		return;
-	}
-	
-	do {
-        const std::string file_name = file_data.cFileName;
-        const std::string full_path = cfg_path + "\\" + file_name;
-        const bool is_directory = (file_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
-
-        if (file_name[0] == '.')
-            continue;
-
-        if (is_directory)
-            continue;
-
-        auto ext = file_name.substr(file_name.rfind(".")+1);
-		if (ext == "weights") {
-			cfg_weightsfile = full_path;
-		} else if (file_name == "weights.txt") {
-			cfg_weightsfile = full_path;
-		}
-
-    } while (FindNextFile(dir, &file_data));
-
-    FindClose(dir);
-	
 	try {
-		parse_commandline(__argc, __argv);
-		init_global_objects();
+		execute("something", cfg_path);
+		if (!wait_till_ready()) 
+			throw std::runtime_error("cannot execute engine");
+		
+		if (!support("undo"))
+			throw std::runtime_error("the engine do not support undo command");
+		
 	} catch(std::exception& e) {
 		fatal(e.what());
 		return;
 	}
-
-	run();
-	start_listen();
 }
 
 

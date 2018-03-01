@@ -51,6 +51,14 @@ class safe_queue
          data_queue.pop();  
          return true;  
      }  
+     bool try_peek(T& value)
+     {  
+         std::lock_guard<std::mutex> lk(mut);  
+         if(data_queue.empty())  
+             return false;
+         value=data_queue.front();
+         return true;  
+     }
      std::shared_ptr<T> try_pop()  
      {  
          std::lock_guard<std::mutex> lk(mut);  
