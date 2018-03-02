@@ -272,21 +272,45 @@ void GtpAgent::send_command(const string& cmd, function<void(bool, const string&
         onInput(cmd);
 }
 
-string GtpAgent::send_command_sync(const string& cmd, bool& success) {
+string GtpAgent::send_command_sync(const string& cmd, bool& success, int timeout_secs) {
 
-    std::condition_variable cond;
     string ret;
-    send_command(cmd, [&success, &cond, &ret](bool ok, const string& out) {
+    std::atomic<bool> returned{false};
+
+    send_command(cmd, [&success, &ret, &returned](bool ok, const string& out) {
 
         success = ok;
         ret = out;
-        cond.notify_one();
+        returned = true;
     });
 
-    std::mutex m;
-    std::unique_lock<std::mutex> lk(m);
-    cond.wait(lk);  
-    return ret;
+    if (!returned)
+        this_thread::sleep_for(chrono::microseconds(10)); 
+
+    if (!returned)
+        this_thread::sleep_for(chrono::microseconds(100)); 
+
+    int ecplised = 0;
+    while (!returned) {
+        
+        if (!alive()) {
+            success = false;
+            return "? not active";
+        }
+        this_thread::sleep_for(chrono::microseconds(1)); 
+
+        if (!returned && timeout_secs > 0 && ecplised++ >= timeout_secs) {
+            success = false;
+            return "? timeout";
+        }
+    }
+
+    return success ? ret : ("? ") + ret;
+}
+
+string GtpAgent::send_command_sync(const string& cmd, int timeout_secs) {
+    bool success;
+    return send_command_sync(cmd, success, timeout_secs);
 }
 
 void GtpAgent::kill() {

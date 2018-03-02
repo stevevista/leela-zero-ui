@@ -54,11 +54,17 @@ int GameArchive::Writer::end_game(int result) {
         return 0;
     }
 
+    if (buffer_.empty()) {
+        throw std::runtime_error("should call GameArchive::Writer::start_game");
+    }
+
     buffer_[1] = (char)result;
     std::memcpy(&buffer_[2], &move_count_, 2);
     ofs_.write(&buffer_[0], buffer_.size());
+    int size = buffer_.size();
     game_valid_ = false;
-    return buffer_.size();
+    buffer_.clear();
+    return size;
 }
 
 
@@ -113,6 +119,17 @@ void GameArchive::Writer::add_move(const int move, const std::vector<float>& pro
 }
 
 
+int GameArchive::Writer::encode_game(const std::vector<int>& moves, int result) {
+    
+    start_game();
+
+    for (auto idx : moves) {
+        add_move(idx, {});
+    }
+
+    return end_game(result);
+}
+
 void GameArchive::Writer::close() {
     ofs_.close();
 }
@@ -132,14 +149,7 @@ static void proceed_moves(GameArchive::Writer& writer, int result, std::vector<i
     if (tree_moves.size() < move_count_thres)
         return;
 
-    writer.start_game();
-
-    for (auto idx : tree_moves) {
-        writer.add_move(idx, {});
-    }
-
-    int wrt_size = writer.end_game(result);
-
+    int wrt_size = writer.encode_game(tree_moves, result);
     if (wrt_size == 0) {
         return; // invalid game
     }

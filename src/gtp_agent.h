@@ -29,7 +29,8 @@ public:
     int boardsize() const { return board_size_; }
 
     void send_command(const string& cmd, function<void(bool, const string&)> handler=nullptr);
-    string send_command_sync(const string& cmd, bool& success);
+    string send_command_sync(const string& cmd, bool& success, int timeout_secs = -1);
+    string send_command_sync(const string& cmd, int timeout_secs = -1);
 
     int join() {
         return process_->get_exit_status();

@@ -58,7 +58,8 @@ public:
         void start_game();
         void add_move(const int move, const std::vector<float>& probs, bool valid = true);
         int end_game(int result);
-        void close();
+        int encode_game(const std::vector<int>& moves, int result);
+        void close(); 
     };
 
     static void generate(const std::string& path, const std::string& out_path, const int expect_boardsize);

@@ -18,7 +18,7 @@ using namespace std;
 
 
 static int opt_games = -1;
-
+static int opt_size = 19;
 
 GtpAgent* black_ptr = nullptr;
 GtpAgent* white_ptr = nullptr;
@@ -65,7 +65,10 @@ int main(int argc, char **argv) {
             }
         }
         else if (opt == "--games") {
-            opt_games = atoi(argv[++i]);
+            opt_games = stoi(argv[++i]);
+        }
+        else if (opt == "--size") {
+            opt_size = stoi(argv[++i]);
         }
     }
 
@@ -127,16 +130,31 @@ int main(int argc, char **argv) {
    sigaction(SIGINT, &sigIntHandler, NULL);
 
     GoBoard board;
+    bool ok;
+
+    if (opt_size != 19) {
+        black_ptr->send_command_sync("boardsize " + to_string(opt_size), ok);
+        if (!ok) {
+            std::cerr << "player 1 do not support size " << opt_size << std::endl;
+            return -1;
+        }
+
+        if (white_ptr) {
+            white_ptr->send_command_sync("boardsize " + to_string(opt_size), ok);
+            if (!ok) {
+                std::cerr << "player 2 do not support size " << opt_size << std::endl;
+                return -1;
+            }
+        }
+    }
 
     int game_count = 0;
-    const int boardsize = 19;
+    const int boardsize = black_ptr->boardsize();
     
     GameArchive::Writer writer;
     writer.create("selfplay.data", boardsize);
 
     while ((opt_games < 0 || game_count++ < opt_games) && black_ptr->alive()) {
-
-        bool ok;
 
         GtpAgent* me = black_ptr;
         GtpAgent* other = white_ptr;
@@ -144,10 +162,14 @@ int main(int argc, char **argv) {
         bool last_is_pass = false;
         int winner = 0;
 
+        bool has_probilities = me->support("probilities");
+
         board.reset(boardsize);
-        black_ptr->send_command_sync("clear_board", ok);
+        black_ptr->send_command_sync("clear_board");
         if (white_ptr)
-            white_ptr->send_command_sync("clear_board", ok);
+            white_ptr->send_command_sync("clear_board");
+
+        writer.start_game();
 
 #ifndef NO_GUI_SUPPORT
         my_window.update(-1, board);
@@ -181,25 +203,31 @@ int main(int argc, char **argv) {
 #endif
             }
 
-            std::vector<float> probs(362, 0);
-            auto rsp = me->send_command_sync("probilities", ok);
-            if (ok) {
-                // probs
-                float v;
-                std::istringstream rspstream(rsp);
-                rspstream >> v;
-                while (!rspstream.fail()) {
-                    probs.emplace_back(v);
+            std::vector<float> probs;
+            
+            if (has_probilities) {
+                auto rsp = me->send_command_sync("probilities", ok);
+                if (ok) {
+                    // probs
+                    float v;
+                    std::istringstream rspstream(rsp);
                     rspstream >> v;
+                    while (!rspstream.fail()) {
+                        probs.emplace_back(v);
+                        rspstream >> v;
+                    }
                 }
-            } else {
-                probs[move] = 1;
             }
-
+             
             // generate move seq
             int move_val = move;
             if (move_val < 0) move_val = boardsize*boardsize;
-            writer.add_move(move_val, probs, !probs.empty());
+
+            if (!has_probilities) {
+                writer.add_move(move_val, {});
+            } else {
+                writer.add_move(move_val, probs, !probs.empty());
+            }
 
             if (other) {
                 other->send_command_sync((black_to_move ? "play b " : "play w ") + vtx, ok);
