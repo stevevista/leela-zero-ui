@@ -355,28 +355,6 @@ namespace dlib
         matrix_unroll_helper<DEST,SRC, SRC::NR, SRC::NC>::go(dest,src);
     }
 
-// ----------------------------------------------------------------------------------------
-// ----------------------------------------------------------------------------------------
-
-    template <
-        typename matrix_dest_type,
-        typename src_exp 
-        >
-    inline typename enable_if_c<ma::is_small_matrix<src_exp>::value && ma::is_very_small_matrix<src_exp>::value==false >::type matrix_assign (
-        matrix_dest_type& dest,
-        const matrix_exp<src_exp>& src
-    )
-    /*!
-        requires
-            - src.destructively_aliases(dest) == false
-            - dest.nr() == src.nr()
-            - dest.nc() == src.nc()
-        ensures
-            - #dest == src
-    !*/
-    {
-        matrix_assign_default(dest,src.ref());
-    }
 
 // ----------------------------------------------------------------------------------------
 

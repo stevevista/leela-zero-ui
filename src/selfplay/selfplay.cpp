@@ -113,8 +113,6 @@ int main(int argc, char **argv) {
     window_ptr = &my_window;
 #endif
 
-    struct sigaction sigIntHandler;
-
     auto my_handler = [](int) {
 #ifndef NO_GUI_SUPPORT
         window_ptr->close_window();
@@ -123,11 +121,14 @@ int main(int argc, char **argv) {
         if (white_ptr) white_ptr->quit();
     };
 
-   sigIntHandler.sa_handler = (__sighandler_t)my_handler;
-   sigemptyset(&sigIntHandler.sa_mask);
-   sigIntHandler.sa_flags = 0;
+#ifndef _WIN32
+    struct sigaction sigIntHandler;
+    sigIntHandler.sa_handler = (__sighandler_t)my_handler;
+    sigemptyset(&sigIntHandler.sa_mask);
+    sigIntHandler.sa_flags = 0;
 
-   sigaction(SIGINT, &sigIntHandler, NULL);
+    sigaction(SIGINT, &sigIntHandler, NULL);
+#endif
 
     GoBoard board;
     bool ok;

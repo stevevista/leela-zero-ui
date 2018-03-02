@@ -2,6 +2,7 @@
 
 #include <iostream>
 #ifdef _WIN32
+#define NOMINMAX
 #include <windows.h>
 #else
 #include <dirent.h>
@@ -15,6 +16,7 @@
 #include "utils.hpp"
 #include <random>
 #include <algorithm> 
+#include <cctype>
 
 namespace napp {
 

@@ -90,28 +90,8 @@ endif()
 
 if (NOT NO_GUI_SUPPORT)
          set(SELFPLAY_SRC ${SELFPLAY_SRC}
-               src/selfplay/image_loader/libpng/png.c
-               src/selfplay/image_loader/libpng/pngerror.c
-               src/selfplay/image_loader/libpng/pngget.c
-               src/selfplay/image_loader/libpng/pngmem.c
-               src/selfplay/image_loader/libpng/pngpread.c
-               src/selfplay/image_loader/libpng/pngread.c
-               src/selfplay/image_loader/libpng/pngrio.c
-               src/selfplay/image_loader/libpng/pngrtran.c
-               src/selfplay/image_loader/libpng/pngrutil.c
-               src/selfplay/image_loader/libpng/pngset.c
-               src/selfplay/image_loader/libpng/pngtrans.c
-               src/selfplay/image_loader/zlib/adler32.c
-               src/selfplay/image_loader/zlib/crc32.c
-               src/selfplay/image_loader/zlib/infback.c
-               src/selfplay/image_loader/zlib/inffast.c
-               src/selfplay/image_loader/zlib/inflate.c
-               src/selfplay/image_loader/zlib/inftrees.c
-               src/selfplay/image_loader/zlib/trees.c
-               src/selfplay/image_loader/zlib/zutil.c
-               src/selfplay/image_loader/png_loader.cpp
                src/selfplay/threads/threaded_object_extension.cpp
-              src/selfplay/threads/threads_kernel_1.cpp
+               src/selfplay/threads/threads_kernel_1.cpp
                 src/selfplay/threads/threads_kernel_2.cpp
                 src/selfplay/threads/threads_kernel_shared.cpp
                 src/selfplay/gui_core/gui_core_kernel_1.cpp

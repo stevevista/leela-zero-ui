@@ -1,10 +1,12 @@
 #include "ui.h"
-#include "image_loader/png_loader.h"
 #include <fstream>
 #include "pixel.h"
 #include "matrix/rectangle.h"
 #include "matrix/matrix_utilities.h"
 
+#define STB_IMAGE_IMPLEMENTATION
+#define STB_IMAGE_INLINE
+#include "../stb/stb_image.h"
 
 namespace dlib
 {
@@ -1001,6 +1003,34 @@ namespace dlib
     }
 
 
+template<typename T>
+void load_image(const std::string& path, T& t_) {
+	int x, y, c;
+	auto result = stbi_load(path.c_str(),&x,&y,&c,4);
+	//std::cout << x << std::endl;
+	//std::cout << y << std::endl;
+	//std::cout << c << std::endl;
+	
+	typedef typename image_traits<T>::pixel_type pixel_type;
+    image_view<T> t(t_);
+    t.set_size( y, x );
+	
+	unsigned char* ptr = result;
+	for ( unsigned n = 0; n < y; n++ )
+    {
+       for ( unsigned m = 0; m < x;m++ )
+       {
+            rgb_alpha_pixel p;
+            p.red = *ptr++;
+            p.green = *ptr++;
+            p.blue = *ptr++;
+            p.alpha = *ptr++;
+            assign_pixel( t[n][m], p );
+       }
+    }	
+	
+	stbi_image_free(result);
+}
 
 go_window::go_window(int bdsize)
 : board_size(bdsize) {
@@ -1011,14 +1041,17 @@ go_window::go_window(int bdsize)
     auto_mutex M(wm);
     const auto r = dlib::get_rect(img_wood);
     set_size(r.width(), r.height());
+
     show();
 }
 
 void go_window::load_res() {
-
-    load_png(img_wood_src, "../wood_1024.png");
-    load_png(img_black_src, "../black_64.png");
-    load_png(img_white_src, "../white_64.png");
+	load_image("res/wood_1024.png", img_wood_src);
+	load_image("res/black_64.png", img_black_src);
+	load_image("res/white_64.png", img_white_src);
+    //load_png(img_wood_src, "res/wood_1024.png");
+    //load_png(img_black_src, "res/black_64.png");
+    //load_png(img_white_src, "res/white_64.png");
 }
 
 void go_window::scale_res() {

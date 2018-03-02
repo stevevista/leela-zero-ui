@@ -2,6 +2,7 @@
 #include <iostream>
 #include <fstream>
 #include <cassert>
+#include <cctype>
 
 static std::string parse_property_name(std::istringstream & strm);
 static bool parse_property_value(std::istringstream & strm, std::string & result);

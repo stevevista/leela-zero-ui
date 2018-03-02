@@ -203,16 +203,6 @@ namespace dlib
         long nc (
         ) const { return get_nc_helper<exp_type,NC>::get(ref()); }
 
-        template <typename U>
-        bool aliases (
-            const matrix_exp<U>& item
-        ) const { return ref().aliases(item); }
-
-        template <typename U>
-        bool destructively_aliases (
-            const matrix_exp<U>& item
-        ) const { return ref().destructively_aliases(item); }
-
         inline const exp_type& ref (
         ) const { return *static_cast<const exp_type*>(this); }
 
@@ -258,25 +248,6 @@ namespace dlib
     /*
         is_matrix<T>::value == 1 if T is a matrix type else 0
     */
-
-// ----------------------------------------------------------------------------------------
-
-    template <
-        typename EXP
-        >
-    class matrix_diag_exp : public matrix_exp<EXP> 
-    {
-        /*!
-            This is a matrix expression type used to represent diagonal matrices.
-            That is, square matrices with all off diagonal elements equal to 0.
-        !*/
-
-    protected:
-        matrix_diag_exp() {}
-        matrix_diag_exp(const matrix_diag_exp& item ):matrix_exp<EXP>(item) {}
-    };
-
-// ----------------------------------------------------------------------------------------
 
 }
 
