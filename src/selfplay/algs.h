@@ -126,10 +126,9 @@
 #include <new>          // for std::bad_alloc
 #include <cstdlib>
 #include <limits> // for std::numeric_limits for is_finite()
-#include "../dassert.h"
-#include "../error.h"
-#include "noncopyable.h"
-#include "../enable_if.h"
+#include "dassert.h"
+#include "error.h"
+#include "enable_if.h"
 
 
 // ----------------------------------------------------------------------------------------

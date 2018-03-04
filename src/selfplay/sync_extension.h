@@ -4,7 +4,7 @@
 #define DLIB_SYNC_EXTENSION_KERNEl_1_
 
 #include "threads.h"
-#include "matrix/algs.h"
+#include "algs.h"
 
 namespace dlib
 {

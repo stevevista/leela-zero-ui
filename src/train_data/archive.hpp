@@ -31,7 +31,7 @@ private:
 // DATA format:
 // HEADER + LINE * N
 // HEADER : 'G', board_size:char
-// LINE : 'g' + result:char + move_cnt:uint16 + MOVE * N
+// LINE : 'g' + size:int(not include self) + result:char + move_cnt:uint16 + MOVE * N
 // MOVE : uint16  
 //        bit0  1 means has leading remove stones, remove_count:uint16 + multiple stone_pos:uint16
 //        bit1  1 means has leading distribution values, 362* float

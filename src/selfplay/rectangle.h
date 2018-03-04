@@ -221,32 +221,6 @@ namespace dlib
         long b;   
     };
 
-    inline std::ostream& operator<< (
-        std::ostream& out, 
-        const rectangle& item 
-    )   
-    {
-        out << "[(" << item.left() << ", " << item.top() << ") (" << item.right() << ", " << item.bottom() << ")]";
-        return out;
-    }
-
-// ----------------------------------------------------------------------------------------
-
-    inline const rectangle centered_rect (
-        long x,
-        long y,
-        unsigned long width,
-        unsigned long height
-    )
-    {
-        rectangle result;
-        result.set_left ( x - static_cast<long>(width) / 2 );
-        result.set_top ( y - static_cast<long>(height) / 2 );
-        result.set_right ( result.left() + width - 1 );
-        result.set_bottom ( result.top() + height - 1 );
-        return result;
-    }
-
 // ----------------------------------------------------------------------------------------
 
     inline rectangle intersect (
@@ -259,18 +233,6 @@ namespace dlib
     inline unsigned long area (
         const rectangle& a
     ) { return a.area(); }
-
-
-// ----------------------------------------------------------------------------------------
-
-    inline const rectangle centered_rect (
-        const rectangle& rect,
-        unsigned long width,
-        unsigned long height
-    )
-    {
-        return centered_rect((rect.left()+rect.right())/2,  (rect.top()+rect.bottom())/2, width, height);
-    }
 
 // ----------------------------------------------------------------------------------------
 
@@ -342,99 +304,6 @@ namespace dlib
         return rectangle(rect.left(),rect.top(), 
                          rect.left()+width-1,
                          rect.top()+height-1);
-    }
-
-// ----------------------------------------------------------------------------------------
-
-    inline const rectangle resize_rect_width (
-        const rectangle& rect,
-        unsigned long width
-    )
-    {
-        return rectangle(rect.left(),rect.top(), 
-                         rect.left()+width-1,
-                         rect.bottom());
-    }
-
-// ----------------------------------------------------------------------------------------
-
-    inline const rectangle resize_rect_height (
-        const rectangle& rect,
-        unsigned long height 
-    )
-    {
-        return rectangle(rect.left(),rect.top(), 
-                         rect.right(),
-                         rect.top()+height-1);
-    }
-
-
-// ----------------------------------------------------------------------------------------
-
-    inline const rectangle move_rect (
-        const rectangle& rect,
-        long x,
-        long y 
-    )
-    {
-        return rectangle(x, y, x+rect.width()-1, y+rect.height()-1);
-    }
-
-// ----------------------------------------------------------------------------------------
-
-    inline rectangle set_rect_area (
-        const rectangle& rect,
-        unsigned long area
-    )
-    {
-        DLIB_ASSERT(area > 0);
-
-        if (rect.area() == 0)
-        {
-            // In this case we will make the output rectangle a square with the requested
-            // area.
-            unsigned long scale = std::round(std::sqrt(area));
-            return centered_rect(rect, scale, scale);
-        }
-        else
-        {
-            double scale = std::sqrt(area/(double)rect.area());
-            return centered_rect(rect, (long)std::round(rect.width()*scale), (long)std::round(rect.height()*scale));
-        }
-    }
-
-// ----------------------------------------------------------------------------------------
-
-    inline rectangle set_aspect_ratio (
-        const rectangle& rect,
-        double ratio
-    )
-    {
-        DLIB_ASSERT(ratio > 0,
-            "\t rectangle set_aspect_ratio()"
-            << "\n\t ratio: " << ratio 
-            );
-
-        // aspect ratio is w/h
-
-        // we need to find the rectangle that is nearest to rect in area but
-        // with an aspect ratio of ratio.
-
-        // w/h == ratio
-        // w*h == rect.area()
-
-        if (ratio >= 1)
-        {
-            const long h = static_cast<long>(std::sqrt(rect.area()/ratio) + 0.5);
-            const long w = static_cast<long>(h*ratio + 0.5);
-            return centered_rect(rect, w, h);
-        }
-        else
-        {
-            const long w = static_cast<long>(std::sqrt(rect.area()*ratio) + 0.5);
-            const long h = static_cast<long>(w/ratio + 0.5);
-            return centered_rect(rect, w, h);
-        }
     }
 
 

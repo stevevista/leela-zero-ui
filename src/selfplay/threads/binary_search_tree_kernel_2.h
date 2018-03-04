@@ -3,7 +3,7 @@
 #ifndef DLIB_BINARY_SEARCH_TREE_KERNEl_2_
 #define DLIB_BINARY_SEARCH_TREE_KERNEl_2_
 
-#include "../matrix/algs.h"
+#include "../algs.h"
 #include "../map_pair.h"
 #include "enumerable.h"
 #include <functional>

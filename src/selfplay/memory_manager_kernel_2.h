@@ -3,7 +3,7 @@
 #ifndef DLIB_MEMORY_MANAGER_KERNEl_2_
 #define DLIB_MEMORY_MANAGER_KERNEl_2_
 
-#include "matrix/algs.h"
+#include "algs.h"
 #include "dassert.h"
 #include <new>
 

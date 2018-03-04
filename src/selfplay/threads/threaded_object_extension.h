@@ -5,7 +5,7 @@
 
 #include "threads_kernel.h"
 #include "auto_mutex_extension.h"
-#include "../matrix/algs.h"
+#include "../algs.h"
 #include "../dassert.h"
 
 namespace dlib

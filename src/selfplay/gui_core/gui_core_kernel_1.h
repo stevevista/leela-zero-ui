@@ -21,12 +21,11 @@
 #pragma warning(disable: 4244; disable: 4312)
 #endif 
 
-#include "../matrix/algs.h"
+#include "../algs.h"
 #include "../sync_extension.h"
 #include "../threads.h"
-#include "../vector.h"
 #include "../generic_image.h"
-#include "../matrix/rectangle.h"
+#include "../rectangle.h"
 #include "../dassert.h"
 #include "../pixel.h"
 #include "../shared_ptr_thread_safe.h"
@@ -116,7 +115,6 @@ namespace dlib
         constexpr static bool rgb  = true;
         constexpr static bool rgb_alpha  = false;
         constexpr static bool grayscale = false;
-        constexpr static bool hsi = false;
         constexpr static long num = 3;
         typedef unsigned char basic_pixel_type;
         static basic_pixel_type min() { return 0;}

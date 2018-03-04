@@ -1,7 +1,7 @@
 
-from bitstring import ConstBitStream, ReadError
 import random
 import numpy as np
+import struct
 
 BOARD_SIZE = 19
 BOARD_SQ = BOARD_SIZE*BOARD_SIZE
@@ -12,24 +12,24 @@ RESIDUAL_FILTERS = 192
 RESIDUAL_BLOCKS = 13
 
 
-class GameSteps(object):
-    def __init__(self):
-        self.steps = []
-        self.valid_steps = []
-        self.result = 0
 
-    def add(self, valid, pos, removes, probs):
-        index = len(self.steps)
-        self.steps.append((pos, tuple(removes), tuple(probs)))
-        if valid:
-            self.valid_steps.append(index)
+class GameRec(object):
+    def __init__(self, data):
+        self.raw = data
+        self.steps = None
 
     def encode(self, index):
-        
+        if self.steps is None:
+            self.parse()
+
         if index%2 == 0:
             player_is_black = True
+            my_offset = 0
+            opp_offset = HISTORY_STEP
         else:
             player_is_black = False
+            my_offset = HISTORY_STEP
+            opp_offset = 0
 
         blacks = [0]*BOARD_SQ
         whites = [0]*BOARD_SQ
@@ -45,22 +45,17 @@ class GameSteps(object):
                 if black_move:
                     blacks[pos] = 1
                 else:
-                    whites[pos] = 0
+                    whites[pos] = 1
 
             # remove stones
-            if self.steps[step][1]:
-                for rmpos in self.steps[step][1]:
-                    blacks[rmpos] = 0
-                    whites[rmpos] = 0
+            for rmpos in self.steps[step][1]:
+                blacks[rmpos] = 0
+                whites[rmpos] = 0
 
             h = index - step - 1
             if h < HISTORY_STEP:
-                if player_is_black:
-                    planes[h] = np.array(blacks, dtype=np.uint8)
-                    planes[HISTORY_STEP + h] = np.array(whites, dtype=np.uint8)
-                else:
-                    planes[h] = np.array(whites, dtype=np.uint8)
-                    planes[HISTORY_STEP + h] = np.array(blacks, dtype=np.uint8)
+                planes[h + my_offset] = np.array(blacks, dtype=np.uint8)
+                planes[h + opp_offset] = np.array(whites, dtype=np.uint8)
 
             black_move = not black_move
 
@@ -82,45 +77,24 @@ class GameSteps(object):
 
         return planes, probabilities, player_is_black, result
 
+    def parse(self):
+        if self.steps is not None:
+            return
 
-class GameArchive(object):
-    def __init__(self, path):
-
-        self.games = []
-
-        with open(path, 'rb') as file:
-            raw_data = ConstBitStream(file)
-            type = raw_data.read('int:8')
-            if type != ord('G'):
-                raise Exception("bad archive type magic")
-            bsize = raw_data.read('int:8')
-            if bsize != BOARD_SIZE:
-                raise Exception("not expect traindata for BOARD_SIZE %d" % (BOARD_SIZE,))
-
-            while True:
-                try:
-                    magic = raw_data.read('int:8')
-                    if magic != ord('g'):
-                        raise Exception("bad archive line magic")
-                except ReadError:
-                    break # EOF
-
-                self.parse_game_line(raw_data)
-
- 
-    def parse_game_line(self, raw_data):
-
-        result = raw_data.read('int:8')
-        steps = raw_data.read('uintle:16')
+        steps = []
+        valid_steps = []
+        data = self.raw
+        i = 0
+        result,steps_count = struct.unpack('<bH', data[i:i+3])
+        i = i+3
 
         if result not in (0, 1, -1):
             raise Exception("bad game result")
 
-        game_index = len(self.games)
-        game_steps = GameSteps()
 
-        for step in range(steps):
-            move = raw_data.read('uintle:16')
+        for step in range(steps_count):
+            move, = struct.unpack('<H', data[i:i+2])
+            i = i+2
             pos = 0x1ff & move
 
             if pos > BOARD_SQ:
@@ -130,30 +104,64 @@ class GameArchive(object):
             removes  = []
             # remove stones
             if move & 0x8000:
-                rm = raw_data.read('uintle:16')
-                for _ in range(rm):
-                    rmpos = raw_data.read('uintle:16')
+                rm, = struct.unpack('<H', data[i:i+2])
+                i = i+2
+                removes = struct.unpack('H'*rm, data[i:i+rm*2])
+                i = i+rm*2
+                for rmpos in removes:
                     if rmpos >= BOARD_SQ:
                         raise Exception("invalid remove pos %d" % rmpos)
-                    removes.append(rmpos)
 
             if move & 0x4000:
-                probs = raw_data.read(['floatle:32']* (BOARD_SQ+1))
+                probs = struct.unpack('f'*(BOARD_SQ+1), data[i:i+(BOARD_SQ+1)*4])
+                i = i+(BOARD_SQ+1)*4
 
             if move & 0x2000:
                 valid = False
             else:
-                valid = True
+                valid_steps.append(len(steps))
 
-            game_steps.add(valid, pos, removes, probs)
+            steps.append((pos, removes, probs))
 
-        game_steps.result = result
-        self.games.append(game_steps)
-                
+
+
+        self.steps = steps
+        self.result = result
+        self.valid_steps = valid_steps
+        
+
+
+class GameArchive(object):
+    def __init__(self, path):
+
+        self.games = []
+
+        with open(path, mode='rb') as file:
+            type = file.read(1)
+            if type != b'G':
+                raise Exception("bad archive type magic")
+            bsize, = struct.unpack('B', file.read(1))
+            if bsize != BOARD_SIZE:
+                raise Exception("not expect traindata for BOARD_SIZE %d" % (BOARD_SIZE,))
+
+            while True:
+                try:
+                    magic,size = struct.unpack('<ci', file.read(5))
+                    if magic != b'g':
+                        raise Exception("bad archive line magic")
+                except struct.error:
+                    break # EOF
+
+                self.games.append(GameRec(file.read(size)))
+                if len(self.games)%10000 == 0:
+                    print('parsed ', len(self.games))
+
+
 
 
 
 if __name__ == "__main__":
-    obj = GameArchive('../build/selfplay.data')
-    obj.games[0].encode(0)
+    obj = GameArchive('../../data/test1.data')
+    planes, probabilities, player_is_black, result = obj.games[0].encode(7)
+    print(planes[0], player_is_black)
 

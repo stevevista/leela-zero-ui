@@ -3,7 +3,7 @@
 #ifndef DLIB_SET_KERNEl_1_
 #define DLIB_SET_KERNEl_1_
 
-#include "../matrix/algs.h"
+#include "../algs.h"
 #include "enumerable.h"
 
 namespace dlib

@@ -5,7 +5,7 @@
 
 #include <iostream>
 #include <cmath>
-#include "matrix/algs.h"
+#include "algs.h"
 #include "uintn.h"
 #include <limits>
 #include <complex>
@@ -255,34 +255,6 @@ namespace dlib
                       (i.e.  #dest == src*(alpha/255) + dest*(1-alpha/255))
     !*/
 
-// ----------------------------------------------------------------------------------------
-
-    template <
-        typename P
-        >
-    inline typename pixel_traits<P>::basic_pixel_type get_pixel_intensity (
-        const P& src
-    );
-    /*!
-        requires
-            - pixel_traits<P> must be defined
-        ensures
-            - if (pixel_traits<P>::grayscale == true) then
-                - returns src
-            - else
-                - converts src to grayscale and returns the resulting value.
-    !*/
-
-// ----------------------------------------------------------------------------------------
-
-    template <
-        typename P,
-        typename T
-        >
-    inline void assign_pixel_intensity (
-        P& dest,
-        const T& new_intensity
-    );
 
 // ----------------------------------------------------------------------------------------
 
@@ -292,8 +264,6 @@ namespace dlib
         constexpr static bool rgb  = true;
         constexpr static bool rgb_alpha  = false;
         constexpr static bool grayscale = false;
-        constexpr static bool hsi = false;
-        constexpr static bool lab = false;
         enum { num = 3};
         typedef unsigned char basic_pixel_type;
         static basic_pixel_type min() { return 0;}
@@ -310,8 +280,6 @@ namespace dlib
         constexpr static bool rgb  = true;
         constexpr static bool rgb_alpha  = false;
         constexpr static bool grayscale = false;
-        constexpr static bool hsi = false;
-        constexpr static bool lab = false;
         constexpr static long num = 3;
         typedef unsigned char basic_pixel_type;
         static basic_pixel_type min() { return 0;}
@@ -328,8 +296,6 @@ namespace dlib
         constexpr static bool rgb  = false;
         constexpr static bool rgb_alpha  = true;
         constexpr static bool grayscale = false;
-        constexpr static bool hsi = false;
-        constexpr static bool lab = false;
         constexpr static long num = 4;
         typedef unsigned char basic_pixel_type;
         static basic_pixel_type min() { return 0;}
@@ -340,118 +306,10 @@ namespace dlib
 
 // ----------------------------------------------------------------------------------------
 
-
-    template <>
-    struct pixel_traits<hsi_pixel>
-    {
-        constexpr static bool rgb  = false;
-        constexpr static bool rgb_alpha  = false;
-        constexpr static bool grayscale = false;
-        constexpr static bool hsi = true;
-        constexpr static bool lab = false;
-        constexpr static long num = 3;
-        typedef unsigned char basic_pixel_type;
-        static basic_pixel_type min() { return 0;}
-        static basic_pixel_type max() { return 255;}
-        constexpr static bool is_unsigned = true;
-        constexpr static bool has_alpha = false;
-    };
-
-// ----------------------------------------------------------------------------------------
-
-
-    template <>
-    struct pixel_traits<lab_pixel>
-    {
-        constexpr static bool rgb  = false;
-        constexpr static bool rgb_alpha  = false;
-        constexpr static bool grayscale = false;
-        constexpr static bool hsi = false;
-        constexpr static bool lab = true;
-        constexpr static long num = 3;
-        typedef unsigned char basic_pixel_type;
-        static basic_pixel_type min() { return 0;}
-        static basic_pixel_type max() { return 255;}
-        constexpr static bool is_unsigned = true;
-        constexpr static bool has_alpha = false;
-    };
-
-// ----------------------------------------------------------------------------------------
-
-    template <typename T>
-    struct grayscale_pixel_traits
-    {
-        constexpr static bool rgb  = false;
-        constexpr static bool rgb_alpha  = false;
-        constexpr static bool grayscale = true;
-        constexpr static bool hsi = false;
-        constexpr static bool lab = false;
-        constexpr static long num = 1;
-        constexpr static bool has_alpha = false;
-        typedef T basic_pixel_type;
-        static basic_pixel_type min() { return std::numeric_limits<T>::min();}
-        static basic_pixel_type max() { return std::numeric_limits<T>::max();}
-        constexpr static bool is_unsigned = is_unsigned_type<T>::value;
-    };
-
-    template <> struct pixel_traits<unsigned char>  : public grayscale_pixel_traits<unsigned char> {};
-    template <> struct pixel_traits<unsigned short> : public grayscale_pixel_traits<unsigned short> {};
-    template <> struct pixel_traits<unsigned int>   : public grayscale_pixel_traits<unsigned int> {};
-    template <> struct pixel_traits<unsigned long>  : public grayscale_pixel_traits<unsigned long> {};
-
-    template <> struct pixel_traits<char>           : public grayscale_pixel_traits<char> {};
-    template <> struct pixel_traits<signed char>    : public grayscale_pixel_traits<signed char> {};
-    template <> struct pixel_traits<short>          : public grayscale_pixel_traits<short> {};
-    template <> struct pixel_traits<int>            : public grayscale_pixel_traits<int> {};
-    template <> struct pixel_traits<long>           : public grayscale_pixel_traits<long> {};
-
-    template <> struct pixel_traits<int64>          : public grayscale_pixel_traits<int64> {};
-    template <> struct pixel_traits<uint64>         : public grayscale_pixel_traits<uint64> {};
-
-// ----------------------------------------------------------------------------------------
-
-    template <typename T>
-    struct float_grayscale_pixel_traits
-    {
-        constexpr static bool rgb  = false;
-        constexpr static bool rgb_alpha  = false;
-        constexpr static bool grayscale = true;
-        constexpr static bool hsi = false;
-        constexpr static bool lab = false;
-        constexpr static long num = 1;
-        constexpr static bool has_alpha = false;
-        typedef T basic_pixel_type;
-        static basic_pixel_type min() { return -std::numeric_limits<T>::max();}
-        static basic_pixel_type max() { return std::numeric_limits<T>::max();}
-        constexpr static bool is_unsigned = false;
-    };
-
-    template <> struct pixel_traits<float>          : public float_grayscale_pixel_traits<float> {};
-    template <> struct pixel_traits<double>         : public float_grayscale_pixel_traits<double> {};
-    template <> struct pixel_traits<long double>    : public float_grayscale_pixel_traits<long double> {};
-
-    // These are here mainly so you can easily copy images into complex arrays.  This is
-    // useful when you want to do a FFT on an image or some similar operation.
-    template <> struct pixel_traits<std::complex<float> > :       public float_grayscale_pixel_traits<float> {};
-    template <> struct pixel_traits<std::complex<double> > :      public float_grayscale_pixel_traits<double> {};
-    template <> struct pixel_traits<std::complex<long double> > : public float_grayscale_pixel_traits<long double> {};
-
-// ----------------------------------------------------------------------------------------
-
     // The following is a bunch of conversion stuff for the assign_pixel function.
 
     namespace assign_pixel_helpers
     {
-
-    // -----------------------------
-        // all the same kind 
-
-        template < typename P >
-        typename enable_if_c<pixel_traits<P>::grayscale>::type
-        assign(P& dest, const P& src) 
-        { 
-            dest = src;
-        }
 
     // -----------------------------
 
@@ -524,25 +382,6 @@ namespace dlib
         { 
             return p >= pixel_traits<T>::min();
         }
-    // -----------------------------
-
-        template < typename P1, typename P2 >
-        typename enable_if_c<pixel_traits<P1>::grayscale && pixel_traits<P2>::grayscale>::type
-        assign(P1& dest, const P2& src) 
-        { 
-            /*
-                The reason for these weird comparison functions is to avoid getting compiler
-                warnings about comparing signed types to unsigned and stuff like that.  
-            */
-
-            if (less_or_equal_to_max<P1>(src))
-                if (greater_or_equal_to_min<P1>(src))
-                    dest = static_cast<P1>(src);
-                else
-                    dest = pixel_traits<P1>::min();
-            else
-                dest = pixel_traits<P1>::max();
-        }
 
     // -----------------------------
     // -----------------------------
@@ -566,90 +405,6 @@ namespace dlib
             dest.blue = src.blue; 
             dest.alpha = src.alpha; 
         }
-
-        template < typename P1, typename P2 >
-        typename enable_if_c<pixel_traits<P1>::hsi && pixel_traits<P2>::hsi>::type
-        assign(P1& dest, const P2& src) 
-        { 
-            dest.h = src.h; 
-            dest.s = src.s; 
-            dest.i = src.i; 
-        }
-
-        template < typename P1, typename P2 >
-        typename enable_if_c<pixel_traits<P1>::lab && pixel_traits<P2>::lab>::type
-        assign(P1& dest, const P2& src)
-        {
-            dest.l = src.l;
-            dest.a = src.a;
-            dest.b = src.b;
-        }
-
-    // -----------------------------
-        // dest is a grayscale
-
-        template < typename P1, typename P2 >
-        typename enable_if_c<pixel_traits<P1>::grayscale && pixel_traits<P2>::rgb>::type
-        assign(P1& dest, const P2& src) 
-        { 
-            const unsigned int temp = ((static_cast<unsigned int>(src.red) +
-                                        static_cast<unsigned int>(src.green) +  
-                                        static_cast<unsigned int>(src.blue))/3);
-            assign_pixel(dest, temp);
-        }
-
-        template < typename P1, typename P2 >
-        typename enable_if_c<pixel_traits<P1>::grayscale && pixel_traits<P2>::rgb_alpha>::type
-        assign(P1& dest, const P2& src) 
-        { 
-
-            const unsigned char avg = static_cast<unsigned char>((static_cast<unsigned int>(src.red) +
-                                                                  static_cast<unsigned int>(src.green) +  
-                                                                  static_cast<unsigned int>(src.blue))/3); 
-
-            if (src.alpha == 255)
-            {
-                assign_pixel(dest, avg);
-            }
-            else
-            {
-                // perform this assignment using fixed point arithmetic: 
-                // dest = src*(alpha/255) + dest*(1 - alpha/255);
-                // dest = src*(alpha/255) + dest*1 - dest*(alpha/255);
-                // dest = dest*1 + src*(alpha/255) - dest*(alpha/255);
-                // dest = dest*1 + (src - dest)*(alpha/255);
-                // dest += (src - dest)*(alpha/255);
-
-                int temp = avg;
-                // copy dest into dest_copy using assign_pixel to avoid potential
-                // warnings about implicit float to int warnings.
-                int dest_copy;
-                assign_pixel(dest_copy, dest);
-
-                temp -= dest_copy;
-
-                temp *= src.alpha;
-
-                temp /= 255;
-
-                assign_pixel(dest, temp+dest_copy);
-            }
-        }
-
-        template < typename P1, typename P2 >
-        typename enable_if_c<pixel_traits<P1>::grayscale && pixel_traits<P2>::hsi>::type
-        assign(P1& dest, const P2& src) 
-        { 
-            assign_pixel(dest, src.i);
-        }
-
-        template < typename P1, typename P2 >
-        typename enable_if_c<pixel_traits<P1>::grayscale && pixel_traits<P2>::lab>::type
-        assign(P1& dest, const P2& src)
-        {
-            assign_pixel(dest, src.l);
-        }
-
 
     // -----------------------------
 
@@ -917,17 +672,6 @@ namespace dlib
         }
 
         template < typename P1, typename P2 >
-        typename enable_if_c<pixel_traits<P1>::rgb && pixel_traits<P2>::grayscale>::type
-        assign(P1& dest, const P2& src) 
-        { 
-            unsigned char p;
-            assign_pixel(p, src);
-            dest.red = p; 
-            dest.green = p; 
-            dest.blue = p; 
-        }
-
-        template < typename P1, typename P2 >
         typename enable_if_c<pixel_traits<P1>::rgb && pixel_traits<P2>::rgb_alpha>::type
         assign(P1& dest, const P2& src) 
         { 
@@ -968,40 +712,6 @@ namespace dlib
             }
         }
 
-        template < typename P1, typename P2 >
-        typename enable_if_c<pixel_traits<P1>::rgb && pixel_traits<P2>::hsi>::type
-        assign(P1& dest, const P2& src) 
-        { 
-            COLOUR c;
-            HSL h;
-            h.h = src.h;
-            h.h = h.h/255.0*360;
-            h.s = src.s/255.0;
-            h.l = src.i/255.0;
-            c = HSL2RGB(h);
-
-            dest.red = static_cast<unsigned char>(c.r*255.0 + 0.5);
-            dest.green = static_cast<unsigned char>(c.g*255.0 + 0.5);
-            dest.blue = static_cast<unsigned char>(c.b*255.0 + 0.5);
-        }
-
-        template < typename P1, typename P2 >
-        typename enable_if_c<pixel_traits<P1>::rgb && pixel_traits<P2>::lab>::type
-        assign(P1& dest, const P2& src)
-        {
-            COLOUR c;
-            Lab l;
-            l.l = (src.l/255.0)*100;
-            l.a = (src.a-128.0);
-            l.b = (src.b-128.0);
-            c = Lab2RGB(l);
-
-            dest.red = static_cast<unsigned char>(c.r*255.0 + 0.5);
-            dest.green = static_cast<unsigned char>(c.g*255.0 + 0.5);
-            dest.blue = static_cast<unsigned char>(c.b*255.0 + 0.5);
-        }
-
-
     // -----------------------------
     // dest is a color rgb_alpha_pixel
 
@@ -1015,20 +725,6 @@ namespace dlib
             dest.alpha = 255;
         }
 
-
-        template < typename P1, typename P2 >
-        typename enable_if_c<pixel_traits<P1>::rgb_alpha && pixel_traits<P2>::grayscale>::type
-        assign(P1& dest, const P2& src) 
-        { 
-            unsigned char p;
-            assign_pixel(p, src);
-
-            dest.red = p; 
-            dest.green = p; 
-            dest.blue = p; 
-            dest.alpha = 255;
-        }
-
         template < typename P1, typename P2 >
         typename enable_if_c<pixel_traits<P1>::rgb_alpha && pixel_traits<P2>::rgb>::type
         assign(P1& dest, const P2& src) 
@@ -1037,173 +733,6 @@ namespace dlib
             dest.green = src.green;
             dest.blue = src.blue;
             dest.alpha = 255;
-        }
-
-        template < typename P1, typename P2 >
-        typename enable_if_c<pixel_traits<P1>::rgb_alpha && pixel_traits<P2>::hsi>::type
-        assign(P1& dest, const P2& src) 
-        { 
-            COLOUR c;
-            HSL h;
-            h.h = src.h;
-            h.h = h.h/255.0*360;
-            h.s = src.s/255.0;
-            h.l = src.i/255.0;
-            c = HSL2RGB(h);
-
-            dest.red = static_cast<unsigned char>(c.r*255.0 + 0.5);
-            dest.green = static_cast<unsigned char>(c.g*255.0 + 0.5);
-            dest.blue = static_cast<unsigned char>(c.b*255.0 + 0.5);
-            dest.alpha = 255;
-        }
-
-        template < typename P1, typename P2 >
-        typename enable_if_c<pixel_traits<P1>::rgb_alpha && pixel_traits<P2>::lab>::type
-        assign(P1& dest, const P2& src)
-        {
-            COLOUR c;
-            Lab l;
-            l.l = (src.l/255.0)*100;
-            l.a = (src.a-128.0);
-            l.b = (src.b-128.0);
-            c = Lab2RGB(l);
-
-            dest.red = static_cast<unsigned char>(c.r * 255 + 0.5);
-            dest.green = static_cast<unsigned char>(c.g * 255 + 0.5);
-            dest.blue = static_cast<unsigned char>(c.b * 255 + 0.5);
-            dest.alpha = 255;
-        }
-    // -----------------------------
-        // dest is an hsi pixel
-
-        template < typename P1>
-        typename enable_if_c<pixel_traits<P1>::hsi>::type
-        assign(P1& dest, const unsigned char& src) 
-        { 
-            dest.h = 0;
-            dest.s = 0;
-            dest.i = src;
-        }
-
-
-        template < typename P1, typename P2 >
-        typename enable_if_c<pixel_traits<P1>::hsi && pixel_traits<P2>::grayscale>::type
-        assign(P1& dest, const P2& src) 
-        { 
-            dest.h = 0;
-            dest.s = 0;
-            assign_pixel(dest.i, src);
-        }
-
-        template < typename P1, typename P2 >
-        typename enable_if_c<pixel_traits<P1>::hsi && pixel_traits<P2>::rgb>::type
-        assign(P1& dest, const P2& src) 
-        { 
-            COLOUR c1;
-            HSL c2;
-            c1.r = src.red/255.0;
-            c1.g = src.green/255.0;
-            c1.b = src.blue/255.0;
-            c2 = RGB2HSL(c1);
-
-            dest.h = static_cast<unsigned char>(c2.h/360.0*255.0 + 0.5);
-            dest.s = static_cast<unsigned char>(c2.s*255.0 + 0.5);
-            dest.i = static_cast<unsigned char>(c2.l*255.0 + 0.5);
-        }
-
-        template < typename P1, typename P2 >
-        typename enable_if_c<pixel_traits<P1>::hsi && pixel_traits<P2>::rgb_alpha>::type
-        assign(P1& dest, const P2& src) 
-        { 
-            rgb_pixel temp;
-            // convert target hsi pixel to rgb
-            assign_pixel_helpers::assign(temp,dest);
-
-            // now assign the rgb_alpha value to our temp rgb pixel
-            assign_pixel_helpers::assign(temp,src);
-
-            // now we can just go assign the new rgb value to the
-            // hsi pixel
-            assign_pixel_helpers::assign(dest,temp);
-        }
-
-        template < typename P1, typename P2 >
-        typename enable_if_c<pixel_traits<P1>::hsi && pixel_traits<P2>::lab>::type
-        assign(P1& dest, const P2& src)
-        {
-            rgb_pixel temp;
-            // convert lab value to our temp rgb pixel
-            assign_pixel_helpers::assign(temp,src);
-            // now we can just go assign the new rgb value to the
-            // hsi pixel
-            assign_pixel_helpers::assign(dest,temp);
-        }
-
-    // -----------------------------
-        // dest is an lab pixel
-        template < typename P1>
-        typename enable_if_c<pixel_traits<P1>::lab>::type
-        assign(P1& dest, const unsigned char& src)
-        {
-            dest.a = 128;
-            dest.b = 128;
-            dest.l = src;
-        }
-
-
-        template < typename P1, typename P2 >
-        typename enable_if_c<pixel_traits<P1>::lab && pixel_traits<P2>::grayscale>::type
-        assign(P1& dest, const P2& src)
-        {
-            dest.a = 128;
-            dest.b = 128;
-            assign_pixel(dest.l, src);
-        }
-
-        template < typename P1, typename P2 >
-        typename enable_if_c<pixel_traits<P1>::lab && pixel_traits<P2>::rgb>::type
-        assign(P1& dest, const P2& src)
-        {
-            COLOUR c1;
-            Lab c2;
-            c1.r = src.red / 255.0;
-            c1.g = src.green / 255.0;
-            c1.b = src.blue / 255.0;
-            c2 = RGB2Lab(c1);
-
-            dest.l = static_cast<unsigned char>((c2.l / 100) * 255 + 0.5);
-            dest.a = static_cast<unsigned char>(c2.a + 128 + 0.5);
-            dest.b = static_cast<unsigned char>(c2.b + 128 + 0.5);
-        }
-
-        template < typename P1, typename P2 >
-        typename enable_if_c<pixel_traits<P1>::lab && pixel_traits<P2>::rgb_alpha>::type
-        assign(P1& dest, const P2& src)
-        {
-            rgb_pixel temp;
-            // convert target lab pixel to rgb
-            assign_pixel_helpers::assign(temp,dest);
-
-            // now assign the rgb_alpha value to our temp rgb pixel
-            assign_pixel_helpers::assign(temp,src);
-
-            // now we can just go assign the new rgb value to the
-            // lab pixel
-            assign_pixel_helpers::assign(dest,temp);
-        }
-
-        template < typename P1, typename P2 >
-        typename enable_if_c<pixel_traits<P1>::lab && pixel_traits<P2>::hsi>::type
-        assign(P1& dest, const P2& src)
-        {
-            rgb_pixel temp;
-
-            // convert hsi value to our temp rgb pixel
-            assign_pixel_helpers::assign(temp,src);
-
-            // now we can just go assign the new rgb value to the
-            // lab pixel
-            assign_pixel_helpers::assign(dest,temp);
         }
     }
 
@@ -1214,123 +743,6 @@ namespace dlib
         P1& dest,
         const P2& src
     ) { assign_pixel_helpers::assign(dest,src); }
-
-// ----------------------------------------------------------------------------------------
-
-    template <
-        typename P,
-        typename T
-        >
-    inline typename enable_if_c<pixel_traits<P>::grayscale>::type assign_pixel_intensity_helper (
-        P& dest,
-        const T& new_intensity
-    )
-    {
-        assign_pixel(dest, new_intensity);
-    }
-
-    template <
-        typename P,
-        typename T
-        >
-    inline typename enable_if_c<pixel_traits<P>::grayscale == false &&
-                                pixel_traits<P>::has_alpha>::type assign_pixel_intensity_helper (
-        P& dest,
-        const T& new_intensity
-    )
-    {
-        hsi_pixel p;
-        const unsigned long old_alpha = dest.alpha;
-        dest.alpha = 255;
-        rgb_pixel temp;
-        assign_pixel(temp, dest); // put dest into an rgb_pixel to avoid the somewhat complicated assign_pixel(hsi,rgb_alpha).
-        assign_pixel(p,temp);
-        assign_pixel(p.i, new_intensity);
-        assign_pixel(dest,p);
-        dest.alpha = old_alpha;
-    }
-
-    template <
-        typename P,
-        typename T
-        >
-    inline typename enable_if_c<pixel_traits<P>::grayscale == false &&
-                                pixel_traits<P>::has_alpha == false>::type assign_pixel_intensity_helper (
-        P& dest,
-        const T& new_intensity
-    )
-    {
-        hsi_pixel p;
-        assign_pixel(p,dest);
-        assign_pixel(p.i, new_intensity);
-        assign_pixel(dest,p);
-    }
-
-    template <
-        typename P,
-        typename T
-        >
-    inline void assign_pixel_intensity (
-        P& dest,
-        const T& new_intensity
-    )
-    {
-        assign_pixel_intensity_helper(dest, new_intensity);
-    }
-
-// ----------------------------------------------------------------------------------------
-
-    template <
-        typename P
-        >
-    inline typename enable_if_c<pixel_traits<P>::grayscale, P>::type get_pixel_intensity_helper (
-        const P& src 
-    )
-    {
-        return src;
-    }
-
-    template <
-        typename P
-        >
-    inline typename enable_if_c<pixel_traits<P>::grayscale == false&&
-                                pixel_traits<P>::has_alpha, 
-                                typename pixel_traits<P>::basic_pixel_type>::type get_pixel_intensity_helper (
-        const P& src
-    )
-    {
-        P temp = src;
-        temp.alpha = 255;
-        typename pixel_traits<P>::basic_pixel_type p;
-        assign_pixel(p,temp);
-        return p;
-    }
-
-    template <
-        typename P
-        >
-    inline typename enable_if_c<pixel_traits<P>::grayscale == false&&
-                                pixel_traits<P>::has_alpha == false, 
-                                typename pixel_traits<P>::basic_pixel_type>::type get_pixel_intensity_helper (
-        const P& src
-    )
-    {
-        typename pixel_traits<P>::basic_pixel_type p;
-        assign_pixel(p,src);
-        return p;
-    }
-
-    template <
-        typename P
-        >
-    inline typename pixel_traits<P>::basic_pixel_type get_pixel_intensity (
-        const P& src
-    )
-    {
-        return get_pixel_intensity_helper(src);
-    }
-
-
 
 // ----------------------------------------------------------------------------------------
 

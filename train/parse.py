@@ -182,6 +182,7 @@ class ChunkParser(object):
         while True:
             random.shuffle(chunks)
             for chunk in chunks:
+                chunk.parse()
                 item_count = len(chunk.valid_steps)
                 # Pick only 1 in every 16 positions
                 picked_items = random.sample(range(item_count),

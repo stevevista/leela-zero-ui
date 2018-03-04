@@ -6,7 +6,7 @@
 #include <pthread.h>
 #include <errno.h>
 #include <sys/time.h>
-#include "../matrix/algs.h"
+#include "../algs.h"
 
 namespace dlib
 {

@@ -5,7 +5,7 @@
 
 #include "../windows_magic.h"
 #include <windows.h>
-#include "../matrix/algs.h"
+#include "../algs.h"
 #include <condition_variable>
 #include <mutex>
 #include <chrono>

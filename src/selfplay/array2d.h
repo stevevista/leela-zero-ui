@@ -3,11 +3,10 @@
 #ifndef DLIB_ARRAY2D_KERNEl_1_
 #define DLIB_ARRAY2D_KERNEl_1_
 
-#include "matrix/algs.h"
+#include "algs.h"
 #include "threads/enumerable.h"
-#include "vector.h"
 #include "generic_image.h"
-#include "matrix/rectangle.h"
+#include "rectangle.h"
 
 namespace dlib
 {

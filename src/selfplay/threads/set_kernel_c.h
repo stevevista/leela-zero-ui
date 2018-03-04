@@ -3,7 +3,7 @@
 #ifndef DLIB_SET_KERNEl_C_
 #define DLIB_SET_KERNEl_C_
 
-#include "../matrix/algs.h"
+#include "../algs.h"
 #include "../dassert.h"
 
 namespace dlib

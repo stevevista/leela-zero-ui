@@ -100,12 +100,12 @@ class TFProcess:
 
         # For training from a (smaller) dataset of strong players, you will
         # want to reduce the factor in front of self.mse_loss here.
-        loss = 1.0 * self.policy_loss + 1.0 * self.mse_loss + self.reg_term
+        loss = 1.0 * self.policy_loss + 0.5 * self.mse_loss + self.reg_term
 
         # You need to change the learning rate here if you are training
         # from a self-play training set, for example start with 0.005 instead.
         opt_op = tf.train.MomentumOptimizer(
-            learning_rate=0.03, momentum=0.9, use_nesterov=True)
+            learning_rate=0.0002, momentum=0.9, use_nesterov=True)
 
         self.update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
         with tf.control_dependencies(self.update_ops):

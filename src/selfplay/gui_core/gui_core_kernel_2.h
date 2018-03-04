@@ -5,11 +5,10 @@
 
 #include <string>
 
-#include "../matrix/algs.h"
+#include "../algs.h"
 #include "../threads.h"
-#include "../vector.h"
 #include "../generic_image.h"
-#include "../matrix/rectangle.h"
+#include "../rectangle.h"
 #include <string.h>
 #include "../pixel.h"
 
@@ -104,7 +103,6 @@ namespace dlib
         constexpr static bool rgb  = true;
         constexpr static bool rgb_alpha  = false;
         constexpr static bool grayscale = false;
-        constexpr static bool hsi = false;
         constexpr static long num = 3;
         typedef unsigned char basic_pixel_type;
         static basic_pixel_type min() { return 0;}

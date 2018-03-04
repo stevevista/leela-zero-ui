@@ -7,7 +7,7 @@
 #include <memory>
 #include <typeinfo>
 #include <string>       // for the exceptions
-#include "../matrix/algs.h"
+#include "../algs.h"
 #include "../threads/threads_kernel.h"
 
 // Don't warn about the use of std::auto_ptr in this file.  There is a pragma at the end of

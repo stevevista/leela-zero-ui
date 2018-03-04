@@ -1,5 +1,5 @@
 #pragma once 
-
+#include <array>
 #include "gui_core.h"
 #include "array2d.h"
 #include "../train_data/archive.hpp"
@@ -28,9 +28,9 @@ private:
     void load_res();
     void scale_res();
 
-    point loc(long x, long y) const {
+    std::array<long,2> loc(long x, long y) const {
         long start = edge_size + radius;
-        return point(start+x*radius*2, start+(board_size-1-y)*radius*2);
+        return { start+x*radius*2, start+(board_size-1-y)*radius*2 };
     }
     
 

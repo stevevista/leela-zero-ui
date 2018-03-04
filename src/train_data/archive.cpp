@@ -40,6 +40,11 @@ void GameArchive::Writer::start_game() {
 
     buffer_.emplace_back('g');
 
+    buffer_.emplace_back('x');  // palceholder for size
+    buffer_.emplace_back('x');
+    buffer_.emplace_back('x');
+    buffer_.emplace_back('x');
+
     buffer_.emplace_back('x'); // palceholder for result
 
     buffer_.emplace_back('x'); // palceholder for count
@@ -58,13 +63,17 @@ int GameArchive::Writer::end_game(int result) {
         throw std::runtime_error("should call GameArchive::Writer::start_game");
     }
 
-    buffer_[1] = (char)result;
-    std::memcpy(&buffer_[2], &move_count_, 2);
-    ofs_.write(&buffer_[0], buffer_.size());
-    int size = buffer_.size();
+    int wrt_size = buffer_.size();
+    int size = wrt_size - 5;
+
+    std::memcpy(&buffer_[1], &size, 4);
+    buffer_[5] = (char)result;
+    std::memcpy(&buffer_[6], &move_count_, 2);
+    ofs_.write(&buffer_[0], wrt_size);
+    
     game_valid_ = false;
     buffer_.clear();
-    return size;
+    return wrt_size;
 }
 
 
@@ -401,6 +410,13 @@ int GameArchive::verify(const std::string& path) {
         return v;
     };
 
+    auto read_int = [&]() {
+        int v;
+        if (ifs.read((char*)&v, 4).gcount() != 4)
+            throw std::runtime_error("uncomplate move data (read_int)");
+        return v;
+    };
+
     int read_moves = 0;
 
     auto type = read_char();
@@ -415,7 +431,8 @@ int GameArchive::verify(const std::string& path) {
             break;
 
         if (c != 'g') throw std::runtime_error("bad move signature");
-
+        read_int();
+        
         int result = (int) read_char();
         auto steps = read_ushort();
 

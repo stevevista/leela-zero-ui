@@ -15,7 +15,7 @@
 #include "set_kernel_1.h"
 #include "set_kernel_c.h"
 
-#include "../matrix/algs.h"
+#include "../algs.h"
 #include <functional>
 
 namespace dlib
