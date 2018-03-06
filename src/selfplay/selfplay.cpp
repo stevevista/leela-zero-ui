@@ -27,12 +27,12 @@ go_window* window_ptr = nullptr;
 #endif
 
 int main(int argc, char **argv) {
-
+/*
     go_window my_window1(19);
     my_window1.wait_until_closed();
 
     return 0;
-
+*/
     string selfpath = argv[0];
     
     auto pos  = selfpath.rfind(
