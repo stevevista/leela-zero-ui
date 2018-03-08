@@ -2,7 +2,7 @@
 // License: Boost Software License   See LICENSE.txt for the full license.
 #ifndef DLIB_GUI_CORE_KERNEL_2_CPp_
 #define DLIB_GUI_CORE_KERNEL_2_CPp_
-#include "../platform.h"
+#include "platform.h"
 
 #ifdef POSIX
 
@@ -23,8 +23,8 @@
 
 #include <poll.h>
 
-#include "../dassert.h"
-#include "../sync_extension.h"
+#include "dassert.h"
+#include "sync_extension.h"
 
 namespace dlib
 {

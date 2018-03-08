@@ -57,12 +57,12 @@ namespace dlib
         typename T,
         typename P
         >
-    inline const matrix<T,pixel_traits<P>::num,1> pixel_to_vector (
+    inline const matrix<T,pixel_traits<P>::num> pixel_to_vector (
         const P& pixel
     )
     {
         COMPILE_TIME_ASSERT(pixel_traits<P>::num > 0);
-        matrix<T,pixel_traits<P>::num,1> m;
+        matrix<T,pixel_traits<P>::num> m;
         pixel_to_vector_helper<P>::assign(m,pixel);
         return m;
     }
@@ -119,7 +119,6 @@ namespace dlib
     )
     {
         COMPILE_TIME_ASSERT(pixel_traits<P>::num == matrix_exp<EXP>::NR);
-        COMPILE_TIME_ASSERT(matrix_exp<EXP>::NC == 1);
         vector_to_pixel_helper<P>::assign(pixel,vector);
     }
 
@@ -218,7 +217,6 @@ namespace dlib
 
 
         typedef typename image_traits<image_type1>::pixel_type T;
-        typedef typename image_traits<image_type2>::pixel_type U;
         const double x_scale = (in_img.nc()-1)/(double)std::max<long>((out_img.nc()-1),1);
         const double y_scale = (in_img.nr()-1)/(double)std::max<long>((out_img.nr()-1),1);
         double y = -y_scale;
@@ -675,8 +673,6 @@ void load_image(const std::string& path, T& t_) {
 	//std::cout << x << std::endl;
 	//std::cout << y << std::endl;
 	//std::cout << c << std::endl;
-	
-	typedef typename image_traits<T>::pixel_type pixel_type;
     image_view<T> t(t_);
     t.set_size( y, x );
 	
@@ -697,8 +693,8 @@ void load_image(const std::string& path, T& t_) {
 	stbi_image_free(result);
 }
 
-go_window::go_window(int bdsize)
-: board_size(bdsize) {
+go_window::go_window()
+{
     
     load_res();
     scale_res();
@@ -723,7 +719,7 @@ void go_window::scale_res() {
 
     auto_mutex M(wm);
 
-    long wood_size = radius*2 * board_size + edge_size*2;
+    long wood_size = radius*2 * board_.board_size() + edge_size*2;
     img_wood.set_size(wood_size, wood_size);
     resize_image(img_wood_src, img_wood);
 
@@ -746,17 +742,17 @@ void go_window::paint(const canvas& c) {
 
 void go_window::draw_grid(const canvas& c) {
 
-    long len = radius*2* (board_size - 1);
+    long len = radius*2* (board_.board_size() - 1);
     long start = radius+edge_size;
 
     long y = start;
-    for (int i=0; i< board_size; i++, y+= radius*2) {
+    for (int i=0; i< board_.board_size(); i++, y+= radius*2) {
 
         draw_line (c, {start, y}, {start + len, y}, rgb_alpha_pixel(0, 0, 0, 100));
     }
 
     long x = start;
-    for (int i=0; i< board_size; i++, x+= radius*2) {
+    for (int i=0; i< board_.board_size(); i++, x+= radius*2) {
         
         draw_line (c, {x, start}, {x, start + len}, rgb_alpha_pixel(0, 0, 0, 100));
     }
@@ -768,7 +764,7 @@ void go_window::draw_grid(const canvas& c) {
     draw_line (c, {start + len + 1, start-1}, {start + len + 1, start + len + 1}, rgb_alpha_pixel(0, 0, 0, 100));
 
     //  star
-    if (board_size == 19) {
+    if (board_.board_size() == 19) {
         draw_solid_circle(c, loc(3,3), 3, rgb_alpha_pixel(0, 0, 0, 100));
         draw_solid_circle(c, loc(3,9), 3, rgb_alpha_pixel(0, 0, 0, 100));
         draw_solid_circle(c, loc(3,15), 3, rgb_alpha_pixel(0, 0, 0, 100));
@@ -784,13 +780,13 @@ void go_window::draw_grid(const canvas& c) {
 void go_window::draw_stones(const canvas& c) {
 
     int pos = 0;
-    for (int y=0; y< board_size; y++) {
-        for (int x=0; x< board_size; x++, pos++) {
-            if (board[pos] != 0) {
+    for (int y=0; y< board_.board_size(); y++) {
+        for (int x=0; x< board_.board_size(); x++, pos++) {
+            if (board_[pos] != 0) {
                 int mark = (last_xy == pos) ? 1 : 0;
-                if (board[pos] == 1)
+                if (board_[pos] == 1)
                     draw_stone(c, x, y, 1, mark);
-                else if (board[pos] == -1) {
+                else if (board_[pos] == -1) {
                     draw_stone(c, x, y, 0, mark);
                 }
             }
@@ -804,7 +800,7 @@ void go_window::on_window_resized() {
     get_size(width,height);
 
     auto length = std::min(width, height);
-    auto new_radius = (length - edge_size*2) / (board_size*2);
+    auto new_radius = (length - edge_size*2) / (board_.board_size()*2);
 
     if (new_radius != radius && new_radius > 10) {
         radius = new_radius;
@@ -823,11 +819,27 @@ void go_window::draw_stone(const canvas& c, long x, long y, int black, int mark)
 }
 
 
-void go_window::update(int move, const GoBoard& _board) {
+void go_window::update(bool black_move, int move) {
 
     last_xy = move;
-    for (int i=0; i< board_size*board_size; i++)
-        board[i] = _board[i];
+    board_.update_board(black_move, move);
+    invalidate_rectangle(get_rect(img_wood));
+}
+
+void go_window::update(const vector<GtpState::move_t>& seqs) {
+
+    board_.reset(board_.board_size());
+    for (auto& m : seqs) {
+        board_.update_board(m.is_black, m.pos);
+        last_xy = m.pos;
+    }
+    invalidate_rectangle(get_rect(img_wood));
+}
+
+void go_window::reset(int bdsize) {
+    last_xy = -1;
+    board_.reset(bdsize);
+    scale_res();
     invalidate_rectangle(get_rect(img_wood));
 }
 

@@ -12,12 +12,9 @@
  *
  *****************************************************/
 
-
-// ���Ֆʂ̃T�C�Y
 // Size of real board.
 constexpr int BSIZE = 19;
 
-// �g���Ֆʂ̃T�C�Y
 // Size of extended board. = 21.
 constexpr int EBSIZE = BSIZE + 2;
 
@@ -35,17 +32,14 @@ constexpr int PASS = EBVCNT;
 // used for initialization etc. = 442.
 constexpr int VNULL = EBVCNT + 1;
 
-// �f�t�H���g�̃R�~
 // Default Komi for the Chinese rule.
 constexpr double KOMI = 7.5;
 
-// �אڂ������W�ւ̈ړ��ʁoN, E, S, W�p
 // Shift amount to the next position. {N, E, S, W}
 constexpr int VSHIFT[4] = {EBSIZE, 1, -EBSIZE, -1};
 
 
 /**
- * ���Ֆ� -> �g���Ֆʁ@�̕ϊ��z��
  * Conversion array: real board -> extended board
  */
 constexpr int rtoe[BVCNT] = {
@@ -72,7 +66,6 @@ constexpr int rtoe[BVCNT] = {
 
 
 /**
- * �g���Ֆ� -> ���Ֆʁ@�̕ϊ��z��
  * Conversion array: extended board -> real board
  */
 constexpr int etor[EBVCNT] = {

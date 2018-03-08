@@ -5,12 +5,12 @@
 
 #include <string>
 
-#include "../algs.h"
-#include "../threads.h"
-#include "../generic_image.h"
-#include "../rectangle.h"
+#include "algs.h"
+#include "threads.h"
+#include "generic_image.h"
+#include "rectangle.h"
 #include <string.h>
-#include "../pixel.h"
+#include "pixel.h"
 
 
 namespace dlib
@@ -102,13 +102,7 @@ namespace dlib
     {
         constexpr static bool rgb  = true;
         constexpr static bool rgb_alpha  = false;
-        constexpr static bool grayscale = false;
         constexpr static long num = 3;
-        typedef unsigned char basic_pixel_type;
-        static basic_pixel_type min() { return 0;}
-        static basic_pixel_type max() { return 255;}
-        constexpr static bool is_unsigned = true;
-        constexpr static bool has_alpha = false;
     };
 
 // -----------------

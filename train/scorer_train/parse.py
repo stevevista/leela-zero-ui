@@ -64,14 +64,11 @@ def remap_vertex(vertex, symmetry):
 
 class ChunkParser(object):
     def __init__(self, chunks, workers=None):
-        # Build probility reflection tables. The last element is 'pass' and is identity mapped.
-        self.prob_reflection_table = [[remap_vertex(vertex, sym) for vertex in range(BOARD_SQ)]+[BOARD_SQ] for sym in range(8)]
         # Build full 16-plane reflection tables.
         self.full_reflection_table = [
             [remap_vertex(vertex, sym) + p * BOARD_SQ for p in range(2*HISTORY_STEP) for vertex in range(BOARD_SQ) ]
                 for sym in range(8) ]
         # Convert both to np.array. This avoids a conversion step when they're actually used.
-        self.prob_reflection_table = [ np.array(x, dtype=np.int64) for x in self.prob_reflection_table ]
         self.full_reflection_table = [ np.array(x, dtype=np.int64) for x in self.full_reflection_table ]
         # Build the all-zeros and all-ones flat planes, used for color-to-move.
         self.flat_planes = [ b'\0' * BOARD_SQ, b'\1' * BOARD_SQ ]

@@ -659,8 +659,8 @@ inline void trim(std::string &ss)
 void BoardSpy::init(const std::string& cfg_path) {
 	
 	try {
-		execute("something", cfg_path);
-		if (!wait_till_ready()) 
+		execute("something", cfg_path, 15);
+		if (!isReady()) 
 			throw std::runtime_error("cannot execute engine");
 		
 		if (!support("undo"))

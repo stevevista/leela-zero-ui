@@ -3,15 +3,17 @@
 #include "gui_core.h"
 #include "array2d.h"
 #include "../train_data/archive.hpp"
-
+#include "../gtp_agent.h"
 
 using namespace std;
 using namespace dlib;
 
 class go_window : public base_window {
 public:
-    go_window(int bdsize); 
-    void update(int move, const GoBoard& board);
+    go_window(); 
+    void reset(int bdsize);
+    void update(bool black_move, int move);
+    void update(const vector<GtpState::move_t>& seqs);
 
 private:
     void paint (
@@ -30,7 +32,7 @@ private:
 
     std::array<long,2> loc(long x, long y) const {
         long start = edge_size + radius;
-        return { start+x*radius*2, start+(board_size-1-y)*radius*2 };
+        return { start+x*radius*2, start+(board_.board_size()-1-y)*radius*2 };
     }
     
 
@@ -45,7 +47,6 @@ private:
     long radius = 16;
     long edge_size = 10;
 
-    int board[361];
     int last_xy;
-    const int board_size;
+    GoBoard board_;
 };

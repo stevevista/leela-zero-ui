@@ -8,16 +8,26 @@
 cmake_minimum_required(VERSION 2.8)
 project(gtpfox)
 
-option(NO_GUI_SUPPORT "Use GUI to monitor selfplay" OFF)
+option(NO_GUI_SUPPORT "Use GUI to monitor playing" OFF)
 
 
 FIND_PACKAGE(Threads REQUIRED)
 
+FIND_PACKAGE(BLAS REQUIRED)
+find_path(BLAS_INCLUDE_DIRS openblas_config.h
+  /usr/include
+  /usr/local/include
+  /usr/include/openblas
+  /opt/OpenBLAS/include
+  /usr/include/x86_64-linux-gnu
+  $ENV{BLAS_HOME}/include)
+
+INCLUDE_DIRECTORIES(${BLAS_INCLUDE_DIRS})
 
 if(MSVC)
   add_definitions(/D_CRT_SECURE_NO_WARNINGS)
 else()
-  add_compile_options(-std=c++11 -Wall -Wextra)
+  add_compile_options(-std=c++14 -Wall -Wextra)
 endif()
 
 
@@ -37,23 +47,39 @@ endif()
 
 ADD_LIBRARY(objs OBJECT ${SOURCES})
 
-ADD_EXECUTABLE(gtpagent $<TARGET_OBJECTS:objs> src/main_con.cpp)
-TARGET_LINK_LIBRARIES(gtpagent ${CMAKE_THREAD_LIBS_INIT})
+
+add_definitions(-DFEATURE_USE_CPU_ONLY)
+SET(LZ_SRC src/lz/Network.cpp
+            src/lz/Random.cpp
+            src/lz/GTP.cpp
+            src/lz/UCTSearch.cpp
+            src/lz/UCTNode.cpp
+            src/lz/UCTNodeRoot.cpp
+            src/lz/SMP.cpp
+            src/lz/Utils.cpp
+            src/lz/FastBoard.cpp
+            src/lz/FullBoard.cpp
+            src/lz/FastState.cpp
+            src/lz/KoState.cpp
+            src/lz/GameState.cpp
+            src/lz/Zobrist.cpp
+            src/lz/TimeControl.cpp
+            src/lz/Timing.cpp
+            src/lz/NNCache.cpp)
+
+ADD_LIBRARY(lz_objs OBJECT ${LZ_SRC})
+
 
 if (MSVC)
-ADD_EXECUTABLE(gtpfox WIN32 src/fox.rc $<TARGET_OBJECTS:objs> 
+ADD_EXECUTABLE(gtpfox WIN32 src/fox.rc $<TARGET_OBJECTS:objs> $<TARGET_OBJECTS:lz_objs>
                             src/spy.cpp
                             src/main.cpp
                             src/utils.cpp)
-TARGET_LINK_LIBRARIES(gtpfox ${CMAKE_THREAD_LIBS_INIT})
+TARGET_LINK_LIBRARIES(gtpfox ${CMAKE_THREAD_LIBS_INIT} openblas)
 endif()
 
 SET(SELFPLAY_SRC
-  src/selfplay/selfplay.cpp
-  src/train_data/board.cpp
-  src/train_data/archive.cpp
-  src/train_data/sgf.cpp
-  src/train_data/utils.cpp)
+  src/train_data/board.cpp)
 
 
 if(NO_GUI_SUPPORT)
@@ -90,18 +116,18 @@ endif()
 
 if (NOT NO_GUI_SUPPORT)
          set(SELFPLAY_SRC ${SELFPLAY_SRC}
-               src/selfplay/threads/threaded_object_extension.cpp
-               src/selfplay/threads/threads_kernel_1.cpp
-                src/selfplay/threads/threads_kernel_2.cpp
-                src/selfplay/threads/threads_kernel_shared.cpp
-                src/selfplay/gui_core/gui_core_kernel_1.cpp
-                src/selfplay/gui_core/gui_core_kernel_2.cpp
-                src/selfplay/ui.cpp
+               src/gui/threads/threaded_object_extension.cpp
+               src/gui/threads/threads_kernel_1.cpp
+                src/gui/threads/threads_kernel_2.cpp
+                src/gui/threads/threads_kernel_shared.cpp
+                src/gui/gui_core_kernel_1.cpp
+                src/gui/gui_core_kernel_2.cpp
+                src/gui/ui.cpp
             )
 endif()
 
-ADD_EXECUTABLE(selfplay $<TARGET_OBJECTS:objs> ${SELFPLAY_SRC})
-TARGET_LINK_LIBRARIES(selfplay ${CMAKE_THREAD_LIBS_INIT} ${needed_libraries})
+ADD_EXECUTABLE(play $<TARGET_OBJECTS:objs> $<TARGET_OBJECTS:lz_objs> ${SELFPLAY_SRC} src/play.cpp)
+TARGET_LINK_LIBRARIES(play ${CMAKE_THREAD_LIBS_INIT} ${needed_libraries} openblas)
 
 
 ADD_EXECUTABLE(gendata 

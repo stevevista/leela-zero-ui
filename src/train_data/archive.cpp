@@ -83,16 +83,7 @@ void GameArchive::Writer::push_ushort(unsigned short v) {
     std::memcpy(&buffer_[buffer_.size()-2], &v, 2);
 }
 
-void GameArchive::Writer::push_float(float v) {
-    buffer_.emplace_back('x'); // palceholder
-    buffer_.emplace_back('x');
-    buffer_.emplace_back('x');
-    buffer_.emplace_back('x');
-    std::memcpy(&buffer_[buffer_.size()-4], &v, 4);
-}
-
-
-void GameArchive::Writer::add_move(const int move, const std::vector<float>& probs, bool valid) {
+void GameArchive::Writer::add_move(const int move) {
 
     if (!game_valid_) {
         return;
@@ -107,8 +98,6 @@ void GameArchive::Writer::add_move(const int move, const std::vector<float>& pro
 
     unsigned short move_val = move;
     if (removes.size()) move_val |= 0x8000;
-    if (probs.size()) move_val |= 0x4000;
-    if (!valid) move_val |= 0x2000;
 
     push_ushort(move_val);
 
@@ -116,11 +105,6 @@ void GameArchive::Writer::add_move(const int move, const std::vector<float>& pro
         push_ushort(removes.size());
         for (auto rm : removes)
             push_ushort(rm);
-    }
-
-    if (probs.size()) {
-        for (auto p : probs)
-            push_float(p);
     }
 
     color_ = -color_;
@@ -133,7 +117,7 @@ int GameArchive::Writer::encode_game(const std::vector<int>& moves, int result) 
     start_game();
 
     for (auto idx : moves) {
-        add_move(idx, {});
+        add_move(idx);
     }
 
     return end_game(result);

@@ -9,9 +9,9 @@
 
 
 #ifdef WIN32
-#include "gui_core/windows.h"
+#include "gui_core_kernel_1.h"
 #else
-#include "gui_core/xlib.h"
+#include "gui_core_kernel_2.h"
 #endif
 
 
