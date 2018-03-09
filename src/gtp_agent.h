@@ -160,7 +160,10 @@ public:
             events_.push({"output", line});
         };
         TGTP::onReset = [this]() {
-            reset_vars();
+            while (!events_.empty()) events_.try_pop();
+            pending_reset_ = false;
+            commit_pending_ = false;
+            my_side_is_black_ = true;
             events_.push({"reset"});
         };
     }
@@ -260,7 +263,7 @@ protected:
     bool my_side_is_black_;
 
     void think(bool black_move) {
-        events_.push({"think"});
+        events_.push({"think", black_move ? "b" : "w"});
 
         TGTP::send_command(black_move ? "genmove b" : "genmove w", [black_move, this](bool success, const string& rsp) {
 
@@ -290,17 +293,12 @@ protected:
         });
     }
 
-    void put_stone(bool black_move, int pos) {
-        auto mtext = TGTP::move_to_text(pos);
-        if (mtext.empty()) {
-            // if (handler) handler(GtpAgent::invalid_move);
-            return;
-        }
+    void put_stone(bool black_move, const int pos) {
 
         string cmd = black_move ? "play b " : "play w ";
-        cmd += mtext;
+        cmd += TGTP::move_to_text(pos);
 
-        TGTP::send_command(cmd, [black_move, pos, this](bool success, const string&) {
+        TGTP::send_command(cmd, [black_move, cmd, this](bool success, const string&) {
 
             if (!success) return; // throw std::runtime_error("unexpected play result " + to_string(ret));
 
@@ -314,7 +312,7 @@ protected:
                     TGTP::send_command("undo");  // undo myself
                     TGTP::send_command("undo");  // undo genmove
                     // replay myself
-                    put_stone(black_move, pos);
+                    TGTP::send_command(cmd);
                     return;
                 }
 
@@ -325,12 +323,6 @@ protected:
     }
 
 private:
-    void reset_vars() {
-        while (!events_.empty()) events_.try_pop();
-        pending_reset_ = false;
-        commit_pending_ = false;
-        my_side_is_black_ = true;
-    }
 
     safe_queue<vector<string>> events_;
     std::atomic<bool> pending_reset_{false};

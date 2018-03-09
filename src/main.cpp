@@ -227,7 +227,7 @@ void Dialog::onInit() {
 			wndLabel_.show();
 	};
 
-	spy.onMoveChange = [&]() {
+	spy.onMoveCommit = [&](bool black_player, int move) {
 
 		wndLabel_.hide();
 /*

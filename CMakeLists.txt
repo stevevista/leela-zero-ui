@@ -6,12 +6,27 @@
 ## cmake --build . --config Release
 
 cmake_minimum_required(VERSION 2.8)
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
+
 project(gtpfox)
 
 option(NO_GUI_SUPPORT "Use GUI to monitor playing" OFF)
 
 
 FIND_PACKAGE(Threads REQUIRED)
+
+
+SET(Boost_MIN_VERSION "1.58.0")
+set(Boost_USE_MULTITHREADED ON)
+
+if (NOT MSVC)
+
+FIND_PACKAGE(Boost 1.58.0 REQUIRED program_options)
+FIND_PACKAGE(OpenCL)
+
+if (NOT OpenCL_FOUND)
+add_definitions(-DFEATURE_USE_CPU_ONLY)
+endif()
 
 FIND_PACKAGE(BLAS REQUIRED)
 find_path(BLAS_INCLUDE_DIRS openblas_config.h
@@ -22,7 +37,33 @@ find_path(BLAS_INCLUDE_DIRS openblas_config.h
   /usr/include/x86_64-linux-gnu
   $ENV{BLAS_HOME}/include)
 
-INCLUDE_DIRECTORIES(${BLAS_INCLUDE_DIRS})
+else()
+
+SET(Boost_INCLUDE_DIRS packages/boost.1.65.1.0/lib/native/include)
+SET(BLAS_INCLUDE_DIRS packages/opencl-nug.0.777.12/build/native/include)
+SET(OpenCL_INCLUDE_DIRS packages/OpenBLAS.0.2.14.1/lib/native/include)
+SET(BLAS_LIBRARIES ${CMAKE_SOURCE_DIR}/packages/OpenBLAS.0.2.14.1/lib/native/lib/x64/libopenblas.dll.a)
+SET(OpenCL_LIBRARIES ${CMAKE_SOURCE_DIR}/packages/opencl-nug.0.777.12/build/native/lib/x64/OpenCL.lib)
+
+endif()
+
+
+INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
+if (OpenCL_INCLUDE_DIRS)
+INCLUDE_DIRECTORIES(${OpenCL_INCLUDE_DIRS})
+endif()
+if((UNIX AND NOT APPLE) OR WIN32)
+    INCLUDE_DIRECTORIES(${BLAS_INCLUDE_DIRS})
+endif()
+if(APPLE)
+    INCLUDE_DIRECTORIES("/System/Library/Frameworks/Accelerate.framework/Versions/Current/Headers")
+endif()
+
+
+SET(COMMON_LIBS ${CMAKE_THREAD_LIBS_INIT} ${BLAS_LIBRARIES})
+if (OpenCL_LIBRARIES)
+	SET(COMMON_LIBS ${COMMON_LIBS} ${OpenCL_LIBRARIES})
+endif()
 
 if(MSVC)
   add_definitions(/D_CRT_SECURE_NO_WARNINGS)
@@ -45,10 +86,6 @@ endif()
 
 
 
-ADD_LIBRARY(objs OBJECT ${SOURCES})
-
-
-add_definitions(-DFEATURE_USE_CPU_ONLY)
 SET(LZ_SRC src/lz/Network.cpp
             src/lz/Random.cpp
             src/lz/GTP.cpp
@@ -65,17 +102,22 @@ SET(LZ_SRC src/lz/Network.cpp
             src/lz/Zobrist.cpp
             src/lz/TimeControl.cpp
             src/lz/Timing.cpp
-            src/lz/NNCache.cpp)
+            src/lz/NNCache.cpp
+            src/lz/Tuner.cpp
+            src/lz/OpenCLScheduler.cpp
+            src/lz/OpenCL.cpp)
 
-ADD_LIBRARY(lz_objs OBJECT ${LZ_SRC})
+
+ADD_LIBRARY(objs OBJECT ${SOURCES} ${LZ_SRC})
+
 
 
 if (MSVC)
-ADD_EXECUTABLE(gtpfox WIN32 src/fox.rc $<TARGET_OBJECTS:objs> $<TARGET_OBJECTS:lz_objs>
+ADD_EXECUTABLE(gtpfox WIN32 src/fox.rc $<TARGET_OBJECTS:objs>
                             src/spy.cpp
                             src/main.cpp
                             src/utils.cpp)
-TARGET_LINK_LIBRARIES(gtpfox ${CMAKE_THREAD_LIBS_INIT} openblas)
+TARGET_LINK_LIBRARIES(gtpfox ${COMMON_LIBS})
 endif()
 
 SET(SELFPLAY_SRC
@@ -126,8 +168,8 @@ if (NOT NO_GUI_SUPPORT)
             )
 endif()
 
-ADD_EXECUTABLE(play $<TARGET_OBJECTS:objs> $<TARGET_OBJECTS:lz_objs> ${SELFPLAY_SRC} src/play.cpp)
-TARGET_LINK_LIBRARIES(play ${CMAKE_THREAD_LIBS_INIT} ${needed_libraries} openblas)
+ADD_EXECUTABLE(play $<TARGET_OBJECTS:objs> ${SELFPLAY_SRC} src/play.cpp)
+TARGET_LINK_LIBRARIES(play ${needed_libraries} ${COMMON_LIBS})
 
 
 ADD_EXECUTABLE(gendata 

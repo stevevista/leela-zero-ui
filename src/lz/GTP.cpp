@@ -55,8 +55,6 @@ int cfg_max_visits;
 TimeManagement::enabled_t cfg_timemanage;
 int cfg_lagbuffer_cs;
 int cfg_resignpct;
-int cfg_noise;
-int cfg_random_cnt;
 std::uint64_t cfg_rng_seed;
 bool cfg_dumbpass;
 #ifdef USE_OPENCL
@@ -97,8 +95,6 @@ void GTP::setup_default_parameters() {
     cfg_fpu_reduction = 0.25f;
     // see UCTSearch::should_resign
     cfg_resignpct = -1;
-    cfg_noise = false;
-    cfg_random_cnt = 0;
     cfg_dumbpass = false;
     cfg_logfile_handle = nullptr;
     cfg_quiet = false;
@@ -180,12 +176,13 @@ void init_global_objects() {
     Network::initialize();
 }
 
-bool GTP::support(const string& cmd) {
-    static const vector<string> s_commands = {
+static const vector<string> s_commands = {
         "protocol_version",
         "name",
         "version",
         "quit",
+        "known_command",
+        "list_commands",
         "boardsize",
         "clear_board",
         "komi",
@@ -200,6 +197,9 @@ bool GTP::support(const string& cmd) {
         "place_free_handicap",
         "set_free_handicap"
     };
+
+bool GTP::support(const string& cmd) {
+    
     return find(s_commands.begin(), s_commands.end(), cmd) != s_commands.end();  
 }
 
@@ -216,6 +216,8 @@ void GTP::run() {
     /* set board limits */
     auto komi = 7.5f;
     game->init_game(BOARD_SIZE, komi);
+
+    search = std::make_unique<UCTSearch>(*game);
 
     ready_ = true;
 
@@ -326,6 +328,23 @@ void GTP::run() {
         } else if (command == "quit") {
             gtp_print("");
             return;
+        }  else if (command.find("known_command") == 0) {
+            std::istringstream cmdstream(command);
+            std::string tmp;
+
+            cmdstream >> tmp;     /* remove known_command */
+            cmdstream >> tmp;
+
+            bool found = find(s_commands.begin(), s_commands.end(), tmp) != s_commands.end();
+            gtp_print(found ? "true" : "false");
+ 
+        } else if (command.find("list_commands") == 0) {
+            std::string outtmp(s_commands[0]);
+            for (int i = 1; s_commands[i].size() > 0; i++) {
+                outtmp = outtmp + "\n" + s_commands[i];
+            }
+            gtp_print(outtmp.c_str());
+
         } else if (command.find("boardsize") == 0) {
             std::istringstream cmdstream(command);
             std::string stmp;

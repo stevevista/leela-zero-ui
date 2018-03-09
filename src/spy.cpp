@@ -41,7 +41,7 @@ BoardSpy::BoardSpy()
 
 BoardSpy::~BoardSpy() {
 
-	quit();
+	send_command("quit");
 
 	if (hDisplayDC_)
 		ReleaseDC(NULL, hDisplayDC_);

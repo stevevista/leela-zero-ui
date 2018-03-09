@@ -86,6 +86,7 @@ public:
     void set_visit_limit(int visits);
     void ponder();
     bool is_running() const;
+    void stop_think();
     int est_playouts_left(int elapsed_centis, int time_for_move) const;
     size_t prune_noncontenders(int elapsed_centis = 0, int time_for_move = 0);
     bool stop_thinking(int elapsed_centis = 0, int time_for_move = 0) const;

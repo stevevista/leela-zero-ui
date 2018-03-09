@@ -40,8 +40,6 @@ extern int cfg_max_visits;
 extern TimeManagement::enabled_t cfg_timemanage;
 extern int cfg_lagbuffer_cs;
 extern int cfg_resignpct;
-extern int cfg_noise;
-extern int cfg_random_cnt;
 extern std::uint64_t cfg_rng_seed;
 extern bool cfg_dumbpass;
 #ifdef USE_OPENCL
@@ -98,6 +96,10 @@ public:
         }
         else
             return -1;
+    }
+
+    void stop_think() {
+        if (search) search->stop_think();
     }
 
 private:
@@ -182,6 +184,10 @@ public:
 
     vector<GtpState::move_t> get_move_sequence() const {
         return switch_ == 0 ? gtp_blt.get_move_sequence() : gtp_proc.get_move_sequence();
+    }
+
+    void stop_think() {
+        if (switch_ == 0) gtp_blt.stop_think();
     }
 
 private:

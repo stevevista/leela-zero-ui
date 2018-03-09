@@ -296,13 +296,6 @@ int UCTSearch::get_best_move(passflag_t passflag) {
     // Make sure best is first
     m_root->sort_children(color);
 
-    // Check whether to randomize the best move proportional
-    // to the playout counts, early game only.
-    auto movenum = int(m_rootstate.get_movenum());
-    if (movenum < cfg_random_cnt) {
-        m_root->randomize_first_proportionally();
-    }
-
     auto first_child = m_root->get_first_child();
     assert(first_child != nullptr);
 
@@ -438,6 +431,11 @@ bool UCTSearch::is_running() const {
     return m_run && m_nodes < MAX_TREE_SIZE;
 }
 
+void UCTSearch::stop_think() {
+    m_run = false;
+}
+
+
 int UCTSearch::est_playouts_left(int elapsed_centis, int time_for_move) const
 {
     auto playouts = m_playouts.load();
@@ -523,12 +521,6 @@ int UCTSearch::think(int color, passflag_t passflag) {
         root_eval = m_root->get_eval(color);
     }
     m_root->kill_superkos(m_rootstate);
-    if (cfg_noise) {
-        // Adjusting the Dirichlet noise's alpha constant to the board size
-        auto alpha = 0.03f * 361.0f / BOARD_SQUARES;
-
-        m_root->dirichlet_noise(0.25f, alpha);
-    }
 
     myprintf("NN eval=%f\n",
              (color == FastBoard::BLACK ? root_eval : 1.0f - root_eval));

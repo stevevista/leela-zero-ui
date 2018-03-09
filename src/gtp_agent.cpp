@@ -147,6 +147,7 @@ vector<GtpState::move_t> GtpState::get_move_sequence() const {
         out.push_back({true, pos});
 
     out.insert(out.end(), history_moves_.begin(), history_moves_.end());
+	return out;
 }   
 
 

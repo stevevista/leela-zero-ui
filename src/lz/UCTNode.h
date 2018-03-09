@@ -73,8 +73,6 @@ public:
 
     // Defined in UCTNodeRoot.cpp, only to be called on m_root in UCTSearch
     void kill_superkos(const KoState& state);
-    void dirichlet_noise(float epsilon, float alpha);
-    void randomize_first_proportionally();
 
     UCTNode* get_first_child() const;
     UCTNode* get_nopass_child(FastState& state) const;

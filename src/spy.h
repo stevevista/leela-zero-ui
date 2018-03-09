@@ -7,10 +7,10 @@
 #include <array>
 #include <functional>
 #include <thread>
-#include "gtp_agent.h"
+#include "lz/GTP.h"
 
 
-class BoardSpy : public GameAdvisor {
+class BoardSpy : public GameAdvisor<GtpChoice> {
 public:
 	std::function<void()> onGtpReady;
 	std::function<void()> onSizeChanged;
@@ -172,5 +172,3 @@ extern TCHAR		g_szLocalPath[256];
 void fatal(LPCTSTR msg);
 bool loadBmpData(LPCTSTR pszFile, std::vector<BYTE>& img, int& width, int& height);
 
-
-void gtp_routine();
