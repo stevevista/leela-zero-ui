@@ -24,7 +24,7 @@ namespace dlib
 
     template <
         typename T,
-        long num_rows = 0
+        long num_rows
         >
     class matrix; 
 

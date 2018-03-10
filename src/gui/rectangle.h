@@ -234,64 +234,6 @@ namespace dlib
         const rectangle& a
     ) { return a.area(); }
 
-// ----------------------------------------------------------------------------------------
-
-    inline const rectangle shrink_rect (
-        const rectangle& rect,
-        long num 
-    )
-    {
-        return rectangle(rect.left()+num, rect.top()+num, rect.right()-num, rect.bottom()-num);
-    }
-
-// ----------------------------------------------------------------------------------------
-
-    inline const rectangle grow_rect (
-        const rectangle& rect,
-        long num 
-    )
-    {
-        return shrink_rect(rect, -num);
-    }
-
-// ----------------------------------------------------------------------------------------
-
-    inline const rectangle shrink_rect (
-        const rectangle& rect,
-        long width,
-        long height
-    )
-    {
-        return rectangle(rect.left()+width, rect.top()+height, rect.right()-width, rect.bottom()-height);
-    }
-
-// ----------------------------------------------------------------------------------------
-
-    inline const rectangle grow_rect (
-        const rectangle& rect,
-        long width,
-        long height
-    )
-    {
-        return shrink_rect(rect, -width, -height);
-    }
-
-
-// ----------------------------------------------------------------------------------------
-
-    inline const rectangle translate_rect (
-        const rectangle& rect,
-        long x,
-        long y
-    )
-    {
-        rectangle result;
-        result.set_top ( rect.top() + y );
-        result.set_bottom ( rect.bottom() + y );
-        result.set_left ( rect.left() + x );
-        result.set_right ( rect.right() + x );
-        return result;
-    }
 
 // ----------------------------------------------------------------------------------------
 

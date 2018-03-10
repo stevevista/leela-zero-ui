@@ -766,6 +766,14 @@ void go_window::draw_stones(const canvas& c) {
                     draw_stone(c, x, y, 0, mark);
                 }
             }
+            if (mark_xy == pos && board_[pos] == 0) {
+                draw_shadow_stone(c, x, y, black_move);
+            }
+
+            if (indicate_xy == pos) {
+                auto center = loc(x, y);
+                draw_solid_circle(c, center, radius*0.7, rgb_alpha_pixel(255, 0, 0, 128));
+            }
         }
     }
 }
@@ -791,15 +799,28 @@ void go_window::draw_stone(const canvas& c, long x, long y, int black, int mark)
     draw_image(c, {left, top}, black ? img_black : img_white);
 
     if (mark)
-        draw_circle(c, center, radius*0.6, black ? rgb_alpha_pixel(255, 255, 255, 255) : rgb_alpha_pixel(0, 0, 0, 255));
+        draw_mark(c, x, y, black ? rgb_alpha_pixel(255, 255, 255, 255) : rgb_alpha_pixel(0, 0, 0, 255));
 }
 
+void go_window::draw_mark(const canvas& c, long x, long y, rgb_alpha_pixel pixel) {
+    auto center = loc(x, y);
+    draw_circle(c, center, radius*0.6, pixel);
+}
 
-void go_window::update(bool black_move, int move) {
+void go_window::draw_shadow_stone(const canvas& c, long x, long y, bool black) {
+    auto center = loc(x, y);
+    draw_solid_circle(c, center, radius*0.7, black ? rgb_alpha_pixel(0, 0, 0, 128) : rgb_alpha_pixel(255, 255, 255, 128));
+}
 
-    last_xy = move;
-    board_.update_board(black_move, move);
-    invalidate_rectangle(get_rect(img_wood));
+bool go_window::update(bool black_to_move, int move) {
+
+    if (board_.update_board(black_to_move, move)) {
+        last_xy = move;
+        black_move = !black_to_move;
+        invalidate_rectangle(get_rect(img_wood));
+        return true;
+    }
+    return false;
 }
 
 void go_window::update(const vector<GtpState::move_t>& seqs) {
@@ -808,6 +829,7 @@ void go_window::update(const vector<GtpState::move_t>& seqs) {
     for (auto& m : seqs) {
         board_.update_board(m.is_black, m.pos);
         last_xy = m.pos;
+        black_move = !m.is_black;
     }
     invalidate_rectangle(get_rect(img_wood));
 }
@@ -815,9 +837,71 @@ void go_window::update(const vector<GtpState::move_t>& seqs) {
 void go_window::reset(int bdsize) {
     last_xy = -1;
     board_.reset(bdsize);
+    black_move = true;
+    mark_xy = -1;
+    indicate_xy = -1;
     scale_res();
     invalidate_rectangle(get_rect(img_wood));
 }
 
 //  ----------------------------------------------------------------------------
 
+void go_window::on_mouse_move (
+            unsigned long state,
+            long l,
+            long t
+        ) {
+    if (!play_mode)
+        return;
+
+    const int bdsize = board_.board_size();
+    int new_mark = -1;
+    int x = (l-edge_size)/(radius*2);
+    int y = (t-edge_size)/(radius*2);
+    if (l>0 && t > 0 && x >= 0 && x< bdsize && y>=0 && y < bdsize)
+        new_mark = (bdsize-1-y)*bdsize + x;
+
+    if (mark_xy != new_mark) {
+        mark_xy = new_mark;
+        invalidate_rectangle(get_rect(img_wood));
+    }
+
+    
+}
+
+void go_window::on_mouse_up (
+            unsigned long btn,
+            unsigned long state,
+            long l,
+            long t
+        ) 
+{
+    if (btn != LEFT || !play_mode)
+        return;
+
+    const int bdsize = board_.board_size();
+    int new_mark = -1;
+    int x = (l-edge_size)/(radius*2);
+    int y = (t-edge_size)/(radius*2);
+    if (l>0 && t > 0 && x >= 0 && x< bdsize && y>=0 && y < bdsize)
+        new_mark = (bdsize-1-y)*bdsize + x;
+
+    if (new_mark != -1 && board_[new_mark] == 0) {
+
+        indicate_xy = -1;
+        if (onMoveClick) {
+            if (onMoveClick(black_move, new_mark)) {
+                update(black_move, new_mark);
+            }
+        }
+        else {
+            update(black_move, new_mark);
+        }
+        
+    }
+}
+
+void go_window::indicate(int pos) { 
+    indicate_xy = pos; 
+    invalidate_rectangle(get_rect(img_wood));
+}

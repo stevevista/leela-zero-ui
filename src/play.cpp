@@ -18,7 +18,10 @@ using namespace std;
 
 static int opt_size = 19;
 static bool opt_advisor = false;
+static bool opt_advisor_sim = false;
 static bool opt_selfplay = false;
+
+constexpr int wait_time_secs = 40;
 
 
 int gtp(const string& cmdline, const string& selfpath);
@@ -61,6 +64,10 @@ int main(int argc, char **argv) {
 
         if (opt == "--advisor") {
             opt_advisor = true;
+        }
+        else if (opt == "--advisor-sim") {
+            opt_advisor = true;
+            opt_advisor_sim = true;
         }
         else if (opt == "--selfplay") {
             opt_selfplay = true;
@@ -185,21 +192,62 @@ int gtp(const string& cmdline, const string& selfpath) {
     GtpChoice agent;
 
 #ifndef NO_GUI_SUPPORT
+    bool showing = true;
     go_window my_window;
-#endif
+
+    my_window.onMoveClick = [&](bool black, int pos) {
+        agent.send_command("play " + string(black? "b " :"w ") + agent.move_to_text(pos));
+        return false; // no commit
+    };
+
+
+    auto check_gui_closed = [&]() {
+        if (my_window.is_closed()) {
+            agent.send_command("quit");
+            return true;
+        }
+        return false;
+    };
+
+    auto close_window = [&]() {
+        my_window.close_window();
+    };
+
+    auto wait_until_closed = [&]() {
+        my_window.wait_until_closed();
+    };
+
+    auto sync_ui_board = [&]() {
+        my_window.update(agent.get_move_sequence());
+    };
+    
+    auto toggle_ui = [&]() {
+        if (showing)
+            my_window.hide();
+        else 
+            my_window.show();
+        showing = !showing;
+    }; 
+
+#else
+    auto check_gui_closed = [&]() { return false; };
+    auto close_window = [&]() {};
+    auto wait_until_closed = [&]() {};
+    auto sync_ui_board = [&]() {};
+    auto toggle_ui = [&]() {}; 
+
+#endif  
 
 
     agent.onOutput = [&](const string& line) {
-#ifndef NO_GUI_SUPPORT
-        my_window.update(agent.get_move_sequence());
-#endif
+        sync_ui_board();
         cout << line;
     };
 
     if (cmdline.empty())
         agent.execute();
     else
-        agent.execute(cmdline, selfpath);
+        agent.execute(cmdline, selfpath, wait_time_secs);
 
     // User player input
     std::thread([&]() {
@@ -207,17 +255,21 @@ int gtp(const string& cmdline, const string& selfpath) {
 		while(true) {
 			std::string input_str;
 			getline(std::cin, input_str);
-            agent.send_command(input_str);
-            if (input_str == "quit")
+            
+            if (input_str == "ui")
+                toggle_ui();
+            else
+                agent.send_command(input_str);
+            if (input_str == "quit") {
+                close_window();
                 break;
+            }
 		}
 
 	}).detach();
 
-#ifndef NO_GUI_SUPPORT
-    my_window.wait_until_closed();
-#endif
-
+    wait_until_closed();
+    check_gui_closed();
     agent.join();
     return 0;
 }
@@ -228,29 +280,86 @@ int advisor(const string& cmdline, const string& selfpath) {
     //GameAdvisor agent("/home/steve/dev/app/leelaz -w /home/steve/dev/data/weights.txt -g");
     
 #ifndef NO_GUI_SUPPORT
+    bool showing = true;
     go_window my_window;
-#endif
+
+    my_window.onMoveClick = [&](bool black, int pos) {
+        if (opt_advisor_sim) {
+            agent.place(black, pos);
+            return true; //commit
+        }
+        else {
+            agent.place(black, pos);
+            return false; //no commit
+        }
+    };
+
+
+    auto check_gui_closed = [&]() {
+        if (my_window.is_closed()) {
+            agent.send_command("quit");
+            return true;
+        }
+        return false;
+    };
+
+    auto close_window = [&]() {
+        my_window.close_window();
+    };
+
+    auto wait_until_closed = [&]() {
+        my_window.wait_until_closed();
+    };
+
+    auto sync_ui_board = [&]() {
+        my_window.update(agent.get_move_sequence());
+    };
+    
+    auto toggle_ui = [&]() {
+        if (showing)
+            my_window.hide();
+        else 
+            my_window.show();
+        showing = !showing;
+    }; 
+
+#else
+    auto check_gui_closed = [&]() { return false; };
+    auto close_window = [&]() {};
+    auto wait_until_closed = [&]() {};
+    auto sync_ui_board = [&]() {};
+    auto toggle_ui = [&]() {}; 
+
+#endif    
 
     agent.onGtpIn = [](const string& line) {
         cout << line << endl;
     };
 
     agent.onGtpOut = [&](const string& line) {
-#ifndef NO_GUI_SUPPORT
-        my_window.update(agent.get_move_sequence());
-#endif
+        if (!opt_advisor_sim) {
+            sync_ui_board();
+        }
         cout << line;
     };
 
     agent.onThinkMove = [&](bool black, int move) {
+        if (opt_advisor_sim) {
+#ifndef NO_GUI_SUPPORT
+            my_window.indicate(move);
+#endif
+        }
+        else {
+            agent.place(black, move);
+        }
 
-        agent.place(black, move);
+        //agent.place(black, move);
     };
 
     if (cmdline.empty())
         agent.execute();
     else
-        agent.execute(cmdline, selfpath);
+        agent.execute(cmdline, selfpath, wait_time_secs);
 
     // User player input
     std::thread([&]() {
@@ -263,11 +372,17 @@ int advisor(const string& cmdline, const string& selfpath) {
             if (pos != GtpState::invalid_move) {
                 agent.place(agent.next_move_is_black(), pos);
             }
+            else if (input_str == "ui")
+                toggle_ui();
+            else if (input_str == "hint")
+                agent.hint();
             else
                 agent.send_command(input_str);
 
-            if (input_str == "quit")
+            if (input_str == "quit") {
+                close_window();
                 break;
+            }
 		}
 
 	}).detach();
@@ -278,16 +393,37 @@ int advisor(const string& cmdline, const string& selfpath) {
     while (true) {
         this_thread::sleep_for(chrono::microseconds(100));
         agent.pop_events();
-        if (!agent.alive())
+        if (!agent.alive()) {
+            close_window();
+            break;
+        }
+        if (check_gui_closed()) 
             break;
     }
 
-#ifndef NO_GUI_SUPPORT
-    my_window.wait_until_closed();
-#endif
-
+    wait_until_closed();
     agent.join();
     return 0;
+}
+
+
+static string move_to_text_sgf(int pos, int bdsize) {
+    std::ostringstream result;
+
+    if (pos < 0) {
+        result << "tt";
+    }
+    else {
+        int column = pos % bdsize;
+        int row = pos / bdsize;
+
+        // SGF inverts rows
+        row = bdsize - row - 1;
+        result << static_cast<char>('a' + column);
+        result << static_cast<char>('a' + row);
+    }
+
+    return result.str();
 }
 
 int selfplay(const string& selfpath, const vector<string>& players) {
@@ -308,7 +444,7 @@ int selfplay(const string& selfpath, const vector<string>& players) {
     if (players.empty())
         black.execute();
     else
-        black.execute(players[0], selfpath, 15);
+        black.execute(players[0], selfpath, wait_time_secs);
 
     if (!black.isReady()) {
         std::cerr << "cannot start player 1" << std::endl;
@@ -317,7 +453,7 @@ int selfplay(const string& selfpath, const vector<string>& players) {
 
     if (players.size() > 1) {
         white_ptr = &white;
-        white.execute(players[1], selfpath, 15);
+        white.execute(players[1], selfpath, wait_time_secs);
         if (!white.isReady()) {
             std::cerr << "cannot start player 2" << std::endl;
             return -1;
@@ -326,6 +462,7 @@ int selfplay(const string& selfpath, const vector<string>& players) {
 
 #ifndef NO_GUI_SUPPORT
     go_window my_window;
+    my_window.enable_play_mode(false);
 #endif
 
     bool ok;
@@ -351,6 +488,7 @@ int selfplay(const string& selfpath, const vector<string>& players) {
     bool black_to_move = true;
     bool last_is_pass = false;
     string result;
+    string sgf_moves;
 
     
     GtpState::send_command_sync(black, "clear_board");
@@ -367,6 +505,17 @@ int selfplay(const string& selfpath, const vector<string>& players) {
         if (!ok)
             throw runtime_error("unexpect error while genmove");
 
+        auto move = me->text_to_move(vtx);
+        auto movestr = move_to_text_sgf(move, black.boardsize());
+        if (black_to_move)
+            sgf_moves.append(";B[" + movestr + "]");
+        else    
+            sgf_moves.append(";W[" + movestr + "]");
+
+        if (move_count % 10 == 0) {
+            sgf_moves.append("\n");
+        }
+
         if (vtx == "resign") {
             result = black_to_move ? "W+Resign" : "B+Resign";
             break;
@@ -380,7 +529,6 @@ int selfplay(const string& selfpath, const vector<string>& players) {
             last_is_pass = false;
             
 #ifndef NO_GUI_SUPPORT
-        auto move = me->text_to_move(vtx);
         my_window.update(black_to_move, move);
 #endif
 
@@ -403,6 +551,29 @@ int selfplay(const string& selfpath, const vector<string>& players) {
     }
 
     std::cout << "Result: " << result << std::endl;
+
+    string sgf_string;
+    float komi = 7.5;
+    int size = black.boardsize();
+    time_t now;
+    time(&now);
+    char timestr[sizeof "2017-10-16"];
+    strftime(timestr, sizeof timestr, "%F", localtime(&now));
+
+    sgf_string.append("(;GM[1]FF[4]RU[Chinese]");
+    sgf_string.append("DT[" + std::string(timestr) + "]");
+    sgf_string.append("SZ[" + std::to_string(size) + "]");
+    sgf_string.append("KM[7.5]");
+    sgf_string.append("RE[" + result + "]");
+    sgf_string.append("\n");
+    sgf_string.append(sgf_moves);
+    sgf_string.append(")\n");
+
+    std::ofstream ofs("selfplay.sgf");
+    ofs << sgf_string;
+    ofs.close();
+
+
 
 #ifndef NO_GUI_SUPPORT
     my_window.wait_until_closed();

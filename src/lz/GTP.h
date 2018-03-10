@@ -24,6 +24,7 @@
 #include <cstdio>
 #include <string>
 #include <vector>
+#include <iostream>
 
 #include "GameState.h"
 #include "UCTSearch.h"
@@ -136,6 +137,7 @@ public:
         gtp_proc.onInput = onInput;
         gtp_proc.onOutput = onOutput;
         gtp_proc.onReset = onReset;
+        gtp_proc.onStderr = [](const string& line) { std::cerr << line << std::endl;  };
         gtp_proc.execute(cmdline, path, wait_secs);
     }
 

@@ -7,7 +7,7 @@
 // specific platform.
 //#include "../threads.h"
 #include "auto_mutex_extension.h"
-#include "../memory_manager_kernel_2.h"
+#include "memory_manager_kernel.h"
 
 #include "binary_search_tree_kernel_1.h"
 #include "binary_search_tree_kernel_2.h"

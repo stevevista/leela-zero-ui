@@ -416,7 +416,7 @@ void GTP::run() {
                     } else {
                         bool is_black = color[0] == 'b';
                         auto xy = game->board.get_xy(game->get_last_move());
-                        auto pos = (xy.second-1)*board_size_ + xy.first-1;
+                        auto pos = (xy.second)*board_size_ + xy.first;
                         history_moves_.push_back({is_black, pos});
                         gtp_print("");
                     }
@@ -453,7 +453,7 @@ void GTP::run() {
                     else if (move == FastBoard::PASS) pos = -1;
                     else {
                         auto xy = game->board.get_xy(game->get_last_move());
-                        pos = (xy.second-1)*board_size_ + xy.first-1;
+                        pos = (xy.second)*board_size_ + xy.first;
                     }
                     history_moves_.push_back({is_black, pos});
 

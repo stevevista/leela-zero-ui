@@ -1,4 +1,4 @@
-#include "archive.hpp"
+#include "board.h"
 #include <stdexcept>
 #include <cassert>
 #include <array>
@@ -54,16 +54,18 @@ void GoBoard::reset(const int bsize) {
     }
 }
 
-bool GoBoard::update_board(const int color, const int i, std::vector<int>& removed) {
+bool GoBoard::update_board(const bool black, const int i) {
 
-    if (i <0 || i > boardsize*boardsize || stones[i]) {
+    if (i >= boardsize*boardsize || stones[i]) {
         std::cerr << i << std::endl;
         std::cerr << stones[i] << std::endl;
         return false;
     }
+
+    const int color = black ? 1 : -1;
     
     // pass
-    if (i == boardsize*boardsize)
+    if (i < 0)
         return true;
 
     stones[i] = color;
@@ -91,7 +93,7 @@ bool GoBoard::update_board(const int color, const int i, std::vector<int>& remov
 
         if (stones[ai] == -color) {
             if (group_libs[group_ids[ai]] == 0) {
-                remove_string(ai, removed);
+                remove_string(ai);
             }
         } else if (stones[ai] == color) {
             int ip = group_ids[i];
@@ -105,19 +107,18 @@ bool GoBoard::update_board(const int color, const int i, std::vector<int>& remov
 
     // check whether we still live (i.e. detect suicide)
     if (group_libs[group_ids[i]] == 0) {
-        remove_string(group_ids[i], removed);
+        remove_string(group_ids[i]);
     }
 
     return true;
 }
 
-void GoBoard::remove_string(int i, std::vector<int>& removed) {
+void GoBoard::remove_string(int i) {
 
     int pos = i;
 
     do {
         stones[pos]  = 0;
-        removed.emplace_back(pos);
 
         NeighborVistor vistor;
         

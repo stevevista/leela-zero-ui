@@ -121,7 +121,7 @@ TARGET_LINK_LIBRARIES(gtpfox ${COMMON_LIBS})
 endif()
 
 SET(SELFPLAY_SRC
-  src/train_data/board.cpp)
+  src/board.cpp)
 
 
 if(NO_GUI_SUPPORT)
@@ -171,11 +171,4 @@ endif()
 ADD_EXECUTABLE(play $<TARGET_OBJECTS:objs> ${SELFPLAY_SRC} src/play.cpp)
 TARGET_LINK_LIBRARIES(play ${needed_libraries} ${COMMON_LIBS})
 
-
-ADD_EXECUTABLE(gendata 
-  src/train_data/gendata.cpp
-  src/train_data/board.cpp
-  src/train_data/archive.cpp
-  src/train_data/sgf.cpp
-  src/train_data/utils.cpp)
 

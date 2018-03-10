@@ -128,8 +128,6 @@
 #include <limits> // for std::numeric_limits for is_finite()
 #include "dassert.h"
 #include "error.h"
-#include "enable_if.h"
-
 
 // ----------------------------------------------------------------------------------------
 
@@ -138,86 +136,23 @@
 namespace dlib
 {
 
-    template <
-    typename T
-    >
-class memory_manager_stateless_kernel_1
-{
-    /*!      
-        this implementation just calls new and delete directly
-    !*/
-    
-    public:
+  template <bool B, class T = void>
+  struct enable_if_c {
+    typedef T type;
+  };
 
-        typedef T type;
-        const static bool is_stateless = true;
+  template <class T>
+  struct enable_if_c<false, T> {};
 
-        template <typename U>
-        struct rebind {
-            typedef memory_manager_stateless_kernel_1<U> other;
-        };
+  template <bool B, class T = void>
+  struct disable_if_c {
+    typedef T type;
+  };
 
-        memory_manager_stateless_kernel_1(
-        )
-        {}
-
-        virtual ~memory_manager_stateless_kernel_1(
-        ) {}
-
-        T* allocate (
-        )
-        {
-            return new T; 
-        }
-
-        void deallocate (
-            T* item
-        )
-        {
-            delete item;
-        }
-
-        T* allocate_array (
-            unsigned long size
-        ) 
-        { 
-            return new T[size];
-        }
-
-        void deallocate_array (
-            T* item
-        ) 
-        { 
-            delete [] item;
-        }
-
-        void swap (memory_manager_stateless_kernel_1&)
-        {}
-
-    private:
-
-        // restricted functions
-        memory_manager_stateless_kernel_1(memory_manager_stateless_kernel_1&);        // copy constructor
-        memory_manager_stateless_kernel_1& operator=(memory_manager_stateless_kernel_1&);    // assignment operator
-};
-
-template <
-    typename T
-    >
-inline void swap (
-    memory_manager_stateless_kernel_1<T>& a, 
-    memory_manager_stateless_kernel_1<T>& b 
-) { a.swap(b); }   
+  template <class T>
+  struct disable_if_c<true, T> {};
 
 
-// ----------------------------------------------------------------------------------------
-
-    /*!A default_memory_manager
-
-        This memory manager just calls new and delete directly.  
-
-    !*/
-    typedef memory_manager_stateless_kernel_1<char> default_memory_manager;
 
 // ----------------------------------------------------------------------------------------
 
@@ -734,28 +669,6 @@ inline void swap (
 #if !defined(_MSC_VER) || _NATIVE_WCHAR_T_DEFINED
     template <> struct is_built_in_scalar_type<wchar_t>         { const static bool value = true; };
 #endif
-
-// ----------------------------------------------------------------------------------------
-    
-    template <
-        typename T
-        >
-    typename enable_if<is_built_in_scalar_type<T>,bool>::type is_finite (
-        const T& value
-    )
-    /*!
-        requires
-            - value must be some kind of scalar type such as int or double
-        ensures
-            - returns true if value is a finite value (e.g. not infinity or NaN) and false
-              otherwise.
-    !*/
-    {
-        if (is_float_type<T>::value)
-            return -std::numeric_limits<T>::infinity() < value && value < std::numeric_limits<T>::infinity();
-        else
-            return true;
-    }
 
 // ----------------------------------------------------------------------------------------
 
