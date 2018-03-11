@@ -657,9 +657,128 @@ inline void trim(std::string &ss)
 } 
 
 void BoardSpy::init(const std::string& cfg_path) {
+
+	GTP::setup_default_parameters();
+	std::string player;
+
+	for (int i=1; i<argc; i++) {
+        string opt = argv[i];
+
+        if (opt == "...") {
+            i++;
+            string append;
+            for (; i<argc; i++) {
+                append += " ";
+                append += argv[i];
+            }
+			if (!player.empty())
+                player += append;
+            break;
+        }
+
+        if (opt == "--player") {
+            player = argv[++i];
+            if (player.find(" ") == string::npos && player.find(".txt") != string::npos)
+                player = "leelaz.exe -g -w " + player;
+        }
+        else if (opt == "--threads" || opt == "-t") {
+                int num_threads = std::stoi(argv[++i]);
+                if (num_threads > cfg_num_threads) {
+                    fprintf(stderr, "Clamping threads to maximum = %d\n", cfg_num_threads);
+                } else if (num_threads != cfg_num_threads) {
+                    fprintf(stderr, "Using %d thread(s).\n", num_threads);
+                    cfg_num_threads = num_threads;
+                }
+        } 
+        else if (opt == "--playouts" || opt == "-p") {
+                cfg_max_playouts = std::stoi(argv[++i]);
+        }
+        else if (opt == "--noponder") {
+                cfg_allow_pondering = false;
+        }
+        else if (opt == "--visits" || opt == "-v") {
+                cfg_max_visits = std::stoi(argv[++i]);
+        }
+        else if (opt == "--lagbuffer" || opt == "-b") {
+                int lagbuffer = std::stoi(argv[++i]);
+                if (lagbuffer != cfg_lagbuffer_cs) {
+                    fprintf(stderr, "Using per-move time margin of %.2fs.\n", lagbuffer/100.0f);
+                    cfg_lagbuffer_cs = lagbuffer;
+                }
+        }
+        else if (opt == "--resignpct" || opt == "-r") {
+                cfg_resignpct = std::stoi(argv[++i]);
+        }
+        else if (opt == "--seed" || opt == "-s") {
+                cfg_rng_seed = std::stoull(argv[++i]);
+                if (cfg_num_threads > 1) {
+                    fprintf(stderr, "Seed specified but multiple threads enabled.\n");
+                    fprintf(stderr, "Games will likely not be reproducible.\n");
+                }
+        }
+        else if (opt == "--dumbpass" || opt == "-d") {
+                cfg_dumbpass = true;
+        }
+        else if (opt == "--weights" || opt == "-w") {
+                cfg_weightsfile = argv[++i];
+        }
+        else if (opt == "--logfile" || opt == "-l") {
+                cfg_logfile = argv[++i];
+                fprintf(stderr, "Logging to %s.\n", cfg_logfile.c_str());
+                cfg_logfile_handle = fopen(cfg_logfile.c_str(), "a");
+        }
+        else if (opt == "--quiet" || opt == "-q") {
+                cfg_quiet = true;
+            }
+        #ifdef USE_OPENCL
+        else if (opt == "--gpu") {
+                cfg_gpus = {std::stoi(argv[++i])};
+            }
+        #endif
+        else if (opt == "--puct") {
+                cfg_puct = std::stof(argv[++i]);
+        }
+        else if (opt == "--softmax_temp") {
+                cfg_softmax_temp = std::stof(argv[++i]);
+        }
+        else if (opt == "--fpu_reduction") {
+            cfg_fpu_reduction = std::stof(argv[++i]);
+        }
+        else if (opt == "--timemanage") {
+            std::string tm = argv[++i];
+            if (tm == "auto") {
+                cfg_timemanage = TimeManagement::AUTO;
+            } else if (tm == "on") {
+                cfg_timemanage = TimeManagement::ON;
+            } else if (tm == "off") {
+                cfg_timemanage = TimeManagement::OFF;
+            } else {
+                fprintf(stderr, "Invalid timemanage value.\n");
+                throw std::runtime_error("Invalid timemanage value.");
+            }
+        }
+    }
+
+    if (cfg_timemanage == TimeManagement::AUTO) {
+        cfg_timemanage = TimeManagement::ON;
+    }
+
+    if (cfg_max_playouts < std::numeric_limits<decltype(cfg_max_playouts)>::max() && cfg_allow_pondering) {
+        fprintf(stderr, "Nonsensical options: Playouts are restricted but "
+                            "thinking on the opponent's time is still allowed. "
+                            "Ponder disabled.\n");
+        cfg_allow_pondering = false;
+    }
+    
+    if (cfg_weightsfile.empty() && player.empty()) {
+        fatal("A network weights file is required to use the program");
+    }
 	
 	try {
-		execute("something", cfg_path, 15);
+		if (player.empty())
+			execute();
+		else
+			execute(execute, cfg_path, 40);
 		if (!isReady()) 
 			throw std::runtime_error("cannot execute engine");
 		

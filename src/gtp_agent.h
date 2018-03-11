@@ -195,20 +195,35 @@ public:
     }
 
     void place(bool black_move, int pos) {
-        events_.push({"update_board", black_move ? "b" : "w", to_string(pos)});
-
+        
         if (commit_pending_) {
 
             commit_pending_ = false;
 
             if (black_move == commit_player_ &&
                 pos == commit_pos_) {
+                // play as sugessed
+                events_.push({"update_board", black_move ? "b" : "w", to_string(pos)});
                 return;
             }
 
-            TGTP::send_command("undo"); // not my turn or not play as sugessed, undo genmove
+            if (black_move != commit_player_) {
+
+                events_.push({"update_board", !black_move ? "b" : "w", "-1"});
+
+                if (commit_pos_ != GtpState::pass_move) {
+                    // i played PASS instead
+                    TGTP::send_command("undo");
+                    put_stone(!black_move, GtpState::pass_move);
+                }
+            }
+            else {
+                // black_move == commit_player_ && pos != commit_pos_
+                TGTP::send_command("undo");
+            }
         }
 
+        events_.push({"update_board", black_move ? "b" : "w", to_string(pos)});
         put_stone(black_move, pos);
     }
 
