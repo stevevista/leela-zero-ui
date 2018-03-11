@@ -45,21 +45,17 @@ int main(int argc, char **argv) {
     selfpath = selfpath.substr(0, pos); 
 
     vector<string> players;
+    string append_str;
 
     for (int i=1; i<argc; i++) {
         string opt = argv[i];
 
-        if (opt == "--pass") {
-            i++;
-            string append;
-            for (; i<argc; i++) {
-                append += " ";
-                append += argv[i];
+        if (opt == "...") {
+            for (int j=i+1; j<argc; j++) {
+                append_str += " ";
+                append_str += argv[j];
             }
-            for (auto& line : players) {
-                line += append;
-            }
-            break;
+            continue;
         }
 
         if (opt == "--advisor") {
@@ -121,6 +117,8 @@ int main(int argc, char **argv) {
             }
             else if (opt == "--weights" || opt == "-w") {
                 cfg_weightsfile = argv[++i];
+                if (players.empty())
+                    players.push_back("0");
             }
             else if (opt == "--logfile" || opt == "-l") {
                 cfg_logfile = argv[++i];
@@ -176,6 +174,14 @@ int main(int argc, char **argv) {
     }
 
     fprintf(stderr, "RNG seed: %llu\n", cfg_rng_seed);
+
+    if (append_str.size())
+        for (auto& line : players) {
+            if (line != "0")
+                line += append_str;
+        }
+
+    
 
     if (players.size() > 1 || opt_selfplay)
         selfplay(selfpath, players);
@@ -244,7 +250,7 @@ int gtp(const string& cmdline, const string& selfpath) {
         cout << line;
     };
 
-    if (cmdline.empty())
+    if (cmdline.empty() || cmdline == "0")
         agent.execute();
     else
         agent.execute(cmdline, selfpath, wait_time_secs);
@@ -343,6 +349,9 @@ int advisor(const string& cmdline, const string& selfpath) {
         cout << line;
     };
 
+    agent.set_init_cmds({"time_settings 1800 15 1"});
+
+
     agent.onThinkMove = [&](bool black, int move) {
         if (opt_advisor_sim) {
 #ifndef NO_GUI_SUPPORT
@@ -356,7 +365,7 @@ int advisor(const string& cmdline, const string& selfpath) {
         //agent.place(black, move);
     };
 
-    if (cmdline.empty())
+    if (cmdline.empty() || cmdline == "0")
         agent.execute();
     else
         agent.execute(cmdline, selfpath, wait_time_secs);
@@ -441,7 +450,7 @@ int selfplay(const string& selfpath, const vector<string>& players) {
 
     GtpChoice* white_ptr = nullptr;
 
-    if (players.empty())
+    if (players.empty() || players[0] == "0")
         black.execute();
     else
         black.execute(players[0], selfpath, wait_time_secs);
@@ -456,6 +465,7 @@ int selfplay(const string& selfpath, const vector<string>& players) {
         white.execute(players[1], selfpath, wait_time_secs);
         if (!white.isReady()) {
             std::cerr << "cannot start player 2" << std::endl;
+            std::cerr << players[1] << endl;
             return -1;
         }
     }

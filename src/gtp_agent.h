@@ -165,7 +165,13 @@ public:
             commit_pending_ = false;
             my_side_is_black_ = true;
             events_.push({"reset"});
+            for (auto& cmd : init_cmds)
+                TGTP::send_command(cmd);
         };
+    }
+
+    void set_init_cmds(const vector<string>& cmds) {
+        init_cmds = cmds;
     }
 
     function<void()> onResetGame;
@@ -186,15 +192,19 @@ public:
             hint();
     }
 
+    bool pending() {
+        return (commit_pending_ || TGTP::playing_pending());
+    }
+
     void hint() {
-        if (commit_pending_ || TGTP::playing_pending())
+        if (pending())
             return;
 
         my_side_is_black_ = TGTP::next_move_is_black();
         think(my_side_is_black_);
     }
 
-    void place(bool black_move, int pos) {
+    bool place(bool black_move, int pos) {
         
         if (commit_pending_) {
 
@@ -204,7 +214,7 @@ public:
                 pos == commit_pos_) {
                 // play as sugessed
                 events_.push({"update_board", black_move ? "b" : "w", to_string(pos)});
-                return;
+                return true;
             }
 
             if (black_move != commit_player_) {
@@ -225,6 +235,7 @@ public:
 
         events_.push({"update_board", black_move ? "b" : "w", to_string(pos)});
         put_stone(black_move, pos);
+        return true;
     }
 
     void pop_events() {
@@ -344,5 +355,6 @@ private:
     std::atomic<bool> commit_pending_{false};
     bool commit_player_;
     int commit_pos_;
+    vector<string> init_cmds;
 };
 

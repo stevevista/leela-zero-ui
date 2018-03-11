@@ -660,20 +660,24 @@ void BoardSpy::init(const std::string& cfg_path) {
 
 	GTP::setup_default_parameters();
 	std::string player;
+	auto argv = __argv;
 
-	for (int i=1; i<argc; i++) {
+    string append_str;
+
+	for (int i=1; i<__argc; i++) {
         string opt = argv[i];
 
-        if (opt == "...") {
-            i++;
-            string append;
-            for (; i<argc; i++) {
-                append += " ";
-                append += argv[i];
+		if (opt == "...") {
+            for (int j=i+1; j<__argc; j++) {
+                append_str += " ";
+                append_str += argv[j];
             }
-			if (!player.empty())
-                player += append;
-            break;
+            continue;
+        }
+
+        if (append_args) {
+            append_str += " ";
+            append_str += opt;
         }
 
         if (opt == "--player") {
@@ -773,6 +777,13 @@ void BoardSpy::init(const std::string& cfg_path) {
     if (cfg_weightsfile.empty() && player.empty()) {
         fatal("A network weights file is required to use the program");
     }
+
+	if (append_str.size()) {
+		if (!player.empty())
+            player += append_str;
+    }
+
+	set_init_cmds({"time_settings 1800 15 1"});
 	
 	try {
 		if (player.empty())
