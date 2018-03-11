@@ -116,6 +116,7 @@ public:
     bool alive();
     bool isReady();
     bool support(const string& cmd);
+    string version() const;
 
     void send_command(const string& cmd, function<void(bool, const string&)> handler=nullptr);
 

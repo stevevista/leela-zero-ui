@@ -68,7 +68,7 @@ endif()
 if(MSVC)
   add_definitions(/D_CRT_SECURE_NO_WARNINGS)
 else()
-  add_compile_options(-std=c++14 -Wall -Wextra)
+  add_compile_options(-std=c++14 -O4 -Wall -Wextra)
 endif()
 
 

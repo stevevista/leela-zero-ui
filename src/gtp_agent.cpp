@@ -407,3 +407,7 @@ bool GtpProcess::restore(int secs) {
 
     return true;
 }
+
+string GtpProcess::version() const {
+    return version_;
+}

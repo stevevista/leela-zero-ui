@@ -79,6 +79,7 @@ public:
     }
     bool isReady() { return alive(); }
     bool support(const string& cmd);
+    string version() const;
 
     void execute() {
         ready_ = false;
@@ -160,6 +161,8 @@ public:
     bool support(const string& cmd) {
         return switch_ == 0 ? gtp_blt.support(cmd) : gtp_proc.support(cmd);
     }
+
+    string version() const;
 
     void send_command(const string& cmd, function<void(bool, const string&)> handler=nullptr) {
         if (switch_ == 0)

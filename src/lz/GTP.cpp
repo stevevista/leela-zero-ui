@@ -629,3 +629,14 @@ void GTP::run() {
         }
     }
 }
+
+string GTP::version() const {
+    return PROGRAM_VERSION;
+}
+
+//////////////////////////////////////////
+
+
+string GtpChoice::version() const {
+    return switch_ == 0 ? gtp_blt.version() : gtp_proc.version();
+}
