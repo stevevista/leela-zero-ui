@@ -172,6 +172,10 @@ public:
         init_cmds = cmds;
     }
 
+    void hint_both(bool v) {
+        hint_both_ = v;
+    }
+
     function<void()> onResetGame;
     function<void(bool,int)> onThinkMove;
     function<void()> onThinkPass;
@@ -218,6 +222,9 @@ public:
                 pos == commit_pos_) {
                 // play as sugessed
                 events_.push({"update_board", black_move ? "b" : "w", to_string(pos)});
+
+                if (hint_both_)
+                    think(!black_move);
                 return true;
             }
 

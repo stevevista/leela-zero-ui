@@ -21,7 +21,7 @@ static constexpr int default_board_size = 19;
 
 static bool opt_play_mode = false;
 static bool opt_comupter_is_black = true;
-static bool opt_advisor_sim = false;
+static bool opt_hint = false;
 static bool opt_match = false;
 
 constexpr int wait_time_secs = 40;
@@ -98,9 +98,8 @@ int main(int argc, char **argv) {
         else if (opt == "--human") {
             opt_comupter_is_black = false;
         }
-        else if (opt == "--advisor-sim") {
-            opt_play_mode = true;
-            opt_advisor_sim = true;
+        else if (opt == "--hint") {
+            opt_hint = true;
         }
         else if (opt == "--match") {
             opt_match = true;
@@ -259,6 +258,7 @@ int gtp(const string& cmdline, const string& selfpath) {
     };
 
     auto sync_ui_board = [&]() {
+        
         update_board_by_seqs(my_window, agent.get_move_sequence());
     };
     
@@ -325,14 +325,12 @@ int advisor(const string& cmdline, const string& selfpath) {
     go_window my_window;
 
     my_window.onMoveClick = [&](bool black, int pos) {
-        if (opt_advisor_sim) {
+        if (black == !opt_comupter_is_black) {
             agent.place(black, pos);
-            return true; //commit
+            return true;
         }
-        else {
-            agent.place(black, pos);
+        else
             return false; //no commit
-        }
     };
 
 
@@ -353,7 +351,8 @@ int advisor(const string& cmdline, const string& selfpath) {
     };
 
     auto sync_ui_board = [&]() {
-        update_board_by_seqs(my_window, agent.get_move_sequence());
+        if (agent.next_move_is_black() == !opt_comupter_is_black)
+            update_board_by_seqs(my_window, agent.get_move_sequence());
     };
     
     auto toggle_ui = [&]() {
@@ -378,26 +377,26 @@ int advisor(const string& cmdline, const string& selfpath) {
     };
 
     agent.onGtpOut = [&](const string& line) {
-        if (!opt_advisor_sim) {
-            sync_ui_board();
-        }
+        sync_ui_board();
         cout << line;
     };
 
     agent.set_init_cmds({"time_settings 1800 15 1"});
+    if (opt_hint)
+        agent.hint_both(true);
 
 
     agent.onThinkMove = [&](bool black, int move) {
-        if (opt_advisor_sim) {
-#ifndef NO_GUI_SUPPORT
-            my_window.indicate(move);
-#endif
-        }
-        else {
+
+        if (black == opt_comupter_is_black) {
             agent.place(black, move);
         }
-
-        //agent.place(black, move);
+        else {
+#ifndef NO_GUI_SUPPORT
+            my_window.indicate(move);
+#endif    
+            cout << "suggest move: " << agent.move_to_text(move) << endl;
+        }
     };
 
     if (cmdline.empty() || cmdline == "0")
@@ -418,8 +417,6 @@ int advisor(const string& cmdline, const string& selfpath) {
             }
             else if (input_str == "ui")
                 toggle_ui();
-            else if (input_str == "hint")
-                agent.hint();
             else
                 agent.send_command(input_str);
 
