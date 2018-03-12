@@ -13,7 +13,7 @@ public:
     int operator[](int i) const { return stones[i]; }
 
     int board_size() const { return boardsize; }
-    void reset(const int bsize);
+    void reset(int bsize=0);
     bool update_board(const bool black, const int i);
 
 private:

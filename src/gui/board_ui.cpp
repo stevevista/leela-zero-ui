@@ -1,4 +1,4 @@
-#include "ui.h"
+#include "board_ui.h"
 #include <fstream>
 #include "pixel.h"
 #include "rectangle.h"
@@ -7,6 +7,12 @@
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_INLINE
 #include "../stb/stb_image.h"
+
+#ifdef _WIN32
+#include <Windows.h>
+#else
+#include <unistd.h>
+#endif
 
 namespace dlib
 {
@@ -683,9 +689,26 @@ go_window::go_window()
 }
 
 void go_window::load_res() {
-	load_image("res/wood_1024.png", img_wood_src);
-	load_image("res/black_64.png", img_black_src);
-	load_image("res/white_64.png", img_white_src);
+
+    char buf[1024] = {};
+#ifdef _WIN32
+	GetModuleFileName(NULL, buf, sizeof(buf)-1);
+	std::string sep = "\\";
+#else
+	readlink("/proc/self/exe", buf, sizeof(buf)-1);
+	std::string sep = "/";
+#endif
+
+    std::string path_base(buf);
+	// Delete file name.
+	auto pos_filename = path_base.rfind(sep);
+	if(pos_filename != std::string::npos){
+		path_base = path_base.substr(0, pos_filename + 1);
+	}
+
+	load_image(path_base + "res/wood_1024.png", img_wood_src);
+	load_image(path_base + "res/black_64.png", img_black_src);
+	load_image(path_base + "res/white_64.png", img_white_src);
     //load_png(img_wood_src, "res/wood_1024.png");
     //load_png(img_black_src, "res/black_64.png");
     //load_png(img_white_src, "res/white_64.png");
@@ -812,35 +835,28 @@ void go_window::draw_shadow_stone(const canvas& c, long x, long y, bool black) {
     draw_solid_circle(c, center, radius*0.7, black ? rgb_alpha_pixel(0, 0, 0, 128) : rgb_alpha_pixel(255, 255, 255, 128));
 }
 
-bool go_window::update(bool black_to_move, int move) {
+bool go_window::update(bool black_to_move, int move, bool refresh) {
 
     if (board_.update_board(black_to_move, move)) {
         last_xy = move;
         black_move = !black_to_move;
-        invalidate_rectangle(get_rect(img_wood));
+        if (refresh) 
+            invalidate();
         return true;
     }
     return false;
 }
 
-void go_window::update(const vector<GtpState::move_t>& seqs) {
-
-    board_.reset(board_.board_size());
-    for (auto& m : seqs) {
-        board_.update_board(m.is_black, m.pos);
-        last_xy = m.pos;
-        black_move = !m.is_black;
-    }
-    invalidate_rectangle(get_rect(img_wood));
-}
-
-void go_window::reset(int bdsize) {
+void go_window::reset(int bdsize, bool refresh) {
     last_xy = -1;
     board_.reset(bdsize);
     black_move = true;
-    mark_xy = -1;
     indicate_xy = -1;
-    scale_res();
+    if (refresh)
+        invalidate();
+}
+
+void go_window::invalidate() {
     invalidate_rectangle(get_rect(img_wood));
 }
 

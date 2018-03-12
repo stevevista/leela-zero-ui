@@ -164,10 +164,7 @@ public:
             while (!events_.empty()) events_.try_pop();
             pending_reset_ = false;
             commit_pending_ = false;
-            my_side_is_black_ = true;
             events_.push({"reset"});
-            for (auto& cmd : init_cmds)
-                TGTP::send_command(cmd);
         };
     }
 
@@ -188,9 +185,15 @@ public:
     void reset(bool my_side) {
         TGTP::send_command("clear_board");
         pending_reset_ = true;
+        my_side_is_black_ = my_side;
 
-        if (my_side)
-            hint();
+        for (auto& cmd : init_cmds)
+            TGTP::send_command(cmd);
+
+        if (my_side || hint_both_) {
+            if (!pending())
+                think(true); // black move
+        }
     }
 
     bool pending() {
@@ -287,8 +290,6 @@ public:
 
 
 protected:
-    bool my_side_is_black_;
-
     void think(bool black_move) {
         events_.push({"think", black_move ? "b" : "w"});
 
@@ -343,13 +344,15 @@ protected:
                     return;
                 }
 
-                if (my_side_is_black_ == !black_move)
+                if (my_side_is_black_ == !black_move || hint_both_)
                     think(my_side_is_black_);
             }
         });
     }
 
 private:
+    bool my_side_is_black_{true};
+    bool hint_both_{false};
 
     safe_queue<vector<string>> events_;
     std::atomic<bool> pending_reset_{false};

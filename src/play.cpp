@@ -12,23 +12,46 @@
 using namespace std;
 
 #ifndef NO_GUI_SUPPORT
-#include "gui/ui.h"
+#include "gui/board_ui.h"
 #endif
+//#include "autogtp.h"
+
+static constexpr int default_board_size = 19;
 
 
-static int opt_size = 19;
-static bool opt_advisor = false;
+static bool opt_play_mode = false;
+static bool opt_comupter_is_black = true;
 static bool opt_advisor_sim = false;
-static bool opt_selfplay = false;
+static bool opt_match = false;
 
 constexpr int wait_time_secs = 40;
 
 
+void autogtpui();
 int gtp(const string& cmdline, const string& selfpath);
 int advisor(const string& cmdline, const string& selfpath);
 int selfplay(const string& selfpath, const vector<string>& players);
 
+#ifndef NO_GUI_SUPPORT
+void update_board_by_seqs(go_window& ui, const vector<GtpState::move_t>& seqs) {
+    ui.reset(0, false);
+    for (auto& m : seqs) {
+        ui.update(m.is_black, m.pos, false);
+    }
+    ui.invalidate();
+}
+
+#endif
+
+
 int main(int argc, char **argv) {
+
+#ifndef NO_GUI_SUPPORT
+    if (argc < 2) {
+        autogtpui();
+        return 0;
+    }
+#endif
 
     GTP::setup_default_parameters();
     
@@ -43,6 +66,17 @@ int main(int argc, char **argv) {
         );
 
     selfpath = selfpath.substr(0, pos); 
+    /*
+    Order o;
+    o.add("network", "./leelaz-model-4937679-16000.txt");
+    o.add("leelazVer", "0.11.1");
+    o.add("options", "-p 1 --noponder ");
+    executeProductionJob(
+        o,
+        selfpath
+    );
+    return 0;
+    */
 
     vector<string> players;
     string append_str;
@@ -58,24 +92,24 @@ int main(int argc, char **argv) {
             continue;
         }
 
-        if (opt == "--advisor") {
-            opt_advisor = true;
+        if (opt == "--play") {
+            opt_play_mode = true;
+        }
+        else if (opt == "--human") {
+            opt_comupter_is_black = false;
         }
         else if (opt == "--advisor-sim") {
-            opt_advisor = true;
+            opt_play_mode = true;
             opt_advisor_sim = true;
         }
-        else if (opt == "--selfplay") {
-            opt_selfplay = true;
+        else if (opt == "--match") {
+            opt_match = true;
         }
         else if (opt == "--player") {
             string player = argv[++i];
             if (player.find(" ") == string::npos && player.find(".txt") != string::npos)
                 player = "./leelaz -g -w " + player;
             players.push_back(player);
-        }
-        else if (opt == "--size") {
-            opt_size = stoi(argv[++i]);
         }
         else if (opt == "--threads" || opt == "-t") {
                 int num_threads = std::stoi(argv[++i]);
@@ -157,6 +191,7 @@ int main(int argc, char **argv) {
         }
     }
 
+
     if (cfg_timemanage == TimeManagement::AUTO) {
         cfg_timemanage = TimeManagement::ON;
     }
@@ -183,9 +218,9 @@ int main(int argc, char **argv) {
 
     
 
-    if (players.size() > 1 || opt_selfplay)
+    if (players.size() > 1 || opt_match)
         selfplay(selfpath, players);
-    else if (opt_advisor)
+    else if (opt_play_mode)
         advisor(players.empty() ? "" : players[0], selfpath);
     else
         gtp(players.empty() ? "" : players[0], selfpath);
@@ -224,7 +259,7 @@ int gtp(const string& cmdline, const string& selfpath) {
     };
 
     auto sync_ui_board = [&]() {
-        my_window.update(agent.get_move_sequence());
+        update_board_by_seqs(my_window, agent.get_move_sequence());
     };
     
     auto toggle_ui = [&]() {
@@ -318,7 +353,7 @@ int advisor(const string& cmdline, const string& selfpath) {
     };
 
     auto sync_ui_board = [&]() {
-        my_window.update(agent.get_move_sequence());
+        update_board_by_seqs(my_window, agent.get_move_sequence());
     };
     
     auto toggle_ui = [&]() {
@@ -397,7 +432,7 @@ int advisor(const string& cmdline, const string& selfpath) {
 	}).detach();
 
     // computer play as BLACK
-    agent.reset(true);
+    agent.reset(opt_comupter_is_black);
 
     while (true) {
         this_thread::sleep_for(chrono::microseconds(100));
@@ -480,17 +515,17 @@ int selfplay(const string& selfpath, const vector<string>& players) {
 
     bool ok;
 
-    if (opt_size != 19) {
-        GtpState::send_command_sync(black, "boardsize " + to_string(opt_size), ok);
+    if (default_board_size != 19) {
+        GtpState::send_command_sync(black, "boardsize " + to_string(default_board_size), ok);
         if (!ok) {
-            std::cerr << "player 1 do not support size " << opt_size << std::endl;
+            std::cerr << "player 1 do not support size " << default_board_size << std::endl;
             return -1;
         }
 
         if (white_ptr) {
-            GtpState::send_command_sync(*white_ptr, "boardsize " + to_string(opt_size), ok);
+            GtpState::send_command_sync(*white_ptr, "boardsize " + to_string(default_board_size), ok);
             if (!ok) {
-                std::cerr << "player 2 do not support size " << opt_size << std::endl;
+                std::cerr << "player 2 do not support size " << default_board_size << std::endl;
                 return -1;
             }
         }
@@ -600,208 +635,5 @@ int selfplay(const string& selfpath, const vector<string>& players) {
 
 
 
-static vector<int> get_ver_list(const string& ver) {
-
-    std::stringstream ss(ver);
-    std::string item;
-    std::vector<int> ver_list;
-    while (std::getline(ss, item, '.')) {
-        ver_list.push_back(stoi(item));
-    }
-    while (ver_list.size() < 3) ver_list.push_back(0);
-
-    return ver_list;
-}
-
-static void error_exit(const string& str) {
-    cerr << str << endl;
-    throw std::runtime_error(str);
-}
-
-class Game 
-{
-    GtpProcess proc;
-    string m_cmdLine;
-    string m_timeSettings{"time_settings 0 1 0"};
-    string m_winner;
-    string m_result;
-    string m_fileName;
-
-    bool m_resignation{false};
-    bool m_blackResigned{false};
-    bool m_blackToMove{true};
-    int m_passes{0};
-    int m_moveNum{0};
-
-public:
-    void gameStart(const string &min_version) {
-
-        proc.execute(m_cmdLine, "", 50);
-
-        if (!proc.isReady()) {
-            error_exit("cannot start leelaz.");
-        }
-
-        // This either succeeds or we exit immediately, so no need to
-        // check any return values.
-        checkVersion(min_version);
-        cout << "Engine has started." << endl;
-        GtpState::send_command_sync(proc, m_timeSettings);
-        cout << "Infinite thinking time set." << endl;
-    }
-
-    bool loadSgf(const string &fileName) {
-        cout << "Loading " << fileName + ".sgf" << endl;
-        bool ok;
-        GtpState::send_command_sync(proc, "loadsgf " + fileName + ".sgf", ok);
-        return ok;
-    }
-
-    bool loadTraining(const string &fileName) {
-        cout << "Loading " << fileName + ".train" << endl;
-        bool ok;
-        GtpState::send_command_sync(proc, "load_training " + fileName + ".train", ok);
-        return ok;
-    }
-
-    bool saveTraining() {
-        cout << "Saving " << m_fileName + ".train" << endl;
-        bool ok;
-        GtpState::send_command_sync(proc, "save_training " + m_fileName + ".train", ok);
-        return ok;
-    }
-
-    bool writeSgf() {
-        bool ok;
-        GtpState::send_command_sync(proc, "printsgf " + m_fileName + ".sgf", ok);
-        return ok;
-    }
-
-    string move() {
-        m_moveNum++;
-        return GtpState::send_command_sync(proc, m_blackToMove ? "genmove b" : "genmove w");
-    }
-
-    bool setMove(const string& m) {
-
-        bool ok;
-        GtpState::send_command_sync(proc, m, ok);
-        if (!ok) {
-            return false;
-        }
-        m_moveNum++;
-        if (m.find("pass") != string::npos) {
-            m_passes++;
-        } else if (m.find("resign") != string::npos) {
-            m_resignation = true;
-            m_blackResigned = (m.find("black") != string::npos);
-        } else {
-            m_passes = 0;
-        }
-        m_blackToMove = !m_blackToMove;
-        return true;
-    }
-
-    bool checkGameEnd() {
-        return (m_resignation ||
-                m_passes > 1 ||
-                m_moveNum > (19 * 19 * 2));
-    }
-
-    bool nextMove() {
-        if(checkGameEnd()) {
-            return false;
-        }
-        m_blackToMove = !m_blackToMove;
-        return true;
-    }
-
-    void setMovesCount(int moves) {
-        m_moveNum = moves;
-        m_blackToMove = (moves % 2) == 0;
-    }
-
-    bool getScore() {
-        if(m_resignation) {
-            if (m_blackResigned) {
-                m_winner = "white";
-                m_result = "W+Resign ";
-                cout << "Score: " << m_result << endl;
-            } else {
-                m_winner = "black";
-                m_result = "B+Resign ";
-                cout << "Score: " << m_result << endl;
-            }
-        } else{
-            bool ok;
-            m_result = GtpState::send_command_sync(proc, "final_score", ok);
-            if (!ok)
-                error_exit("error execute final_score");
-
-            if (m_result[0] == 'W') {
-                m_winner = "white";
-            } else if (m_result[0] == 'B') {
-                m_winner = "black";
-            }
-  
-            cout << "Score: " << m_result;
-        }
-        if (m_winner.empty()) {
-            cout << "No winner found" << endl;
-            return false;
-        }
-        cout << "Winner: " << m_winner << endl;
-        return true;
-    }
-
-    int getWinner() {
-        if(m_winner == "white")
-            return Game::WHITE;
-        else
-            return Game::BLACK;
-    }
-
-    bool dumpTraining() {
-        bool ok;
-        GtpState::send_command_sync(proc, "dump_training " + m_winner + " " + m_fileName + ".txt", ok);
-        return ok;
-    }
-
-    bool dumpDebug() {
-        bool ok;
-        GtpState::send_command_sync(proc, "dump_debug " + m_fileName + ".debug.txt", ok);
-        return ok;
-    }
-
-    void gameQuit() {
-        proc.send_command("quit");
-        GtpState::wait_quit(proc);
-    }
 
 
-
-
-    enum {
-        BLACK = 0,
-        WHITE = 1,
-    };
-
-private:
-    void checkVersion(const string &min_version) {
-
-        auto min_version_list = get_ver_list(min_version);
-        auto ver_list = get_ver_list(proc.version());
-
-        if (proc.isReady())
-            error_exit("engine not ready.");
-
-        int versionCount = (ver_list[0] - min_version_list[0]) * 10000;
-        versionCount += (ver_list[1] - min_version_list[1]) * 100;
-        versionCount += ver_list[2] - min_version_list[2];
-        if (versionCount < 0) {
-            error_exit(string("Leela version is too old, saw ") + proc.version() + 
-                                    string(" but expected ") + min_version +
-                                    string("\nCheck https://github.com/gcp/leela-zero for updates."));
-        }
-    }
-};

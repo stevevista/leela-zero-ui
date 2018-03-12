@@ -42,7 +42,10 @@ public:
     }
 };
 
-void GoBoard::reset(const int bsize) {
+void GoBoard::reset(int bsize) {
+
+    if (bsize == 0)
+        bsize = boardsize;
     
     if (init_boardsize != bsize) {
         init_board_global(bsize);

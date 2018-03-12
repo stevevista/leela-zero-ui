@@ -2,8 +2,8 @@
 #include <array>
 #include "gui_core.h"
 #include "array2d.h"
-#include "../board.h"
-#include "../gtp_agent.h"
+#include "board.h"
+
 
 using namespace std;
 using namespace dlib;
@@ -11,9 +11,10 @@ using namespace dlib;
 class go_window : public base_window {
 public:
     go_window(); 
-    void reset(int bdsize);
-    bool update(bool black_move, int move);
-    void update(const vector<GtpState::move_t>& seqs);
+    void invalidate();
+
+    void reset(int bdsize=0, bool refresh=true);
+    bool update(bool black_move, int move, bool refresh=true);
 
     void enable_play_mode(bool v) {play_mode = v;}
     void indicate(int pos);

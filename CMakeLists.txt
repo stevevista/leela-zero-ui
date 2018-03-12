@@ -71,18 +71,22 @@ else()
   add_compile_options(-std=c++14 -O4 -Wall -Wextra)
 endif()
 
-
-SET(SOURCES 
-  src/gtp_agent.cpp
+SET(TINY_PROC_SRC 
   src/tiny-process-library/process.cpp)
 
 if(MSVC)
-  SET(SOURCES ${SOURCES}
+  SET(TINY_PROC_SRC ${TINY_PROC_SRC}
       src/tiny-process-library/process_win.cpp)
 else()
-  SET(SOURCES ${SOURCES}
+  SET(TINY_PROC_SRC ${TINY_PROC_SRC}
       src/tiny-process-library/process_unix.cpp)
 endif()
+
+
+SET(SOURCES 
+  src/gtp_agent.cpp
+  ${TINY_PROC_SRC})
+
 
 
 
@@ -120,9 +124,6 @@ ADD_EXECUTABLE(gtpfox WIN32 src/fox.rc $<TARGET_OBJECTS:objs>
 TARGET_LINK_LIBRARIES(gtpfox ${COMMON_LIBS})
 endif()
 
-SET(SELFPLAY_SRC
-  src/board.cpp)
-
 
 if(NO_GUI_SUPPORT)
   add_definitions(-DNO_GUI_SUPPORT)
@@ -156,19 +157,22 @@ else()
 endif()
 
 
+SET(GUI_SRC
+  src/gui/board.cpp)
+
 if (NOT NO_GUI_SUPPORT)
-         set(SELFPLAY_SRC ${SELFPLAY_SRC}
+    set(GUI_SRC ${GUI_SRC}
                src/gui/threads/threaded_object_extension.cpp
                src/gui/threads/threads_kernel_1.cpp
                 src/gui/threads/threads_kernel_2.cpp
                 src/gui/threads/threads_kernel_shared.cpp
                 src/gui/gui_core_kernel_1.cpp
                 src/gui/gui_core_kernel_2.cpp
-                src/gui/ui.cpp
+                src/gui/board_ui.cpp
+                src/autogtpui.cpp
             )
 endif()
 
-ADD_EXECUTABLE(play $<TARGET_OBJECTS:objs> ${SELFPLAY_SRC} src/play.cpp)
-TARGET_LINK_LIBRARIES(play ${needed_libraries} ${COMMON_LIBS})
-
+ADD_EXECUTABLE(leelazui $<TARGET_OBJECTS:objs> ${GUI_SRC} src/play.cpp)
+TARGET_LINK_LIBRARIES(leelazui ${needed_libraries} ${COMMON_LIBS})
 
