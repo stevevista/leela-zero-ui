@@ -120,40 +120,39 @@ int main(int argc, char **argv) {
                 }
         } 
         else if (opt == "--playouts" || opt == "-p") {
-                cfg_max_playouts = std::stoi(argv[++i]);
+            cfg_max_playouts = std::stoi(argv[++i]);
         }
-            else if (opt == "--noponder") {
-                cfg_allow_pondering = false;
+        else if (opt == "--noponder") {
+            cfg_allow_pondering = false;
+        }
+        else if (opt == "--visits" || opt == "-v") {
+            cfg_max_visits = std::stoi(argv[++i]);
+        }
+        else if (opt == "--lagbuffer" || opt == "-b") {
+            int lagbuffer = std::stoi(argv[++i]);
+            if (lagbuffer != cfg_lagbuffer_cs) {
+                fprintf(stderr, "Using per-move time margin of %.2fs.\n", lagbuffer/100.0f);
+                cfg_lagbuffer_cs = lagbuffer;
             }
-            else if (opt == "--visits" || opt == "-v") {
-                cfg_max_visits = std::stoi(argv[++i]);
-            }
-            else if (opt == "--lagbuffer" || opt == "-b") {
-                int lagbuffer = std::stoi(argv[++i]);
-                if (lagbuffer != cfg_lagbuffer_cs) {
-                    fprintf(stderr, "Using per-move time margin of %.2fs.\n", lagbuffer/100.0f);
-                    cfg_lagbuffer_cs = lagbuffer;
-                }
-            }
-            else if (opt == "--resignpct" || opt == "-r") {
-                cfg_resignpct = std::stoi(argv[++i]);
-            }
-            else if (opt == "--seed" || opt == "-s") {
+        }
+        else if (opt == "--resignpct" || opt == "-r") {
+            cfg_resignpct = std::stoi(argv[++i]);
+        }
+        else if (opt == "--seed" || opt == "-s") {
                 cfg_rng_seed = std::stoull(argv[++i]);
                 if (cfg_num_threads > 1) {
                     fprintf(stderr, "Seed specified but multiple threads enabled.\n");
                     fprintf(stderr, "Games will likely not be reproducible.\n");
                 }
-            }
-            else if (opt == "--dumbpass" || opt == "-d") {
-                cfg_dumbpass = true;
-            }
-            else if (opt == "--weights" || opt == "-w") {
-                cfg_weightsfile = argv[++i];
-                if (players.empty())
-                    players.push_back("0");
-            }
-            else if (opt == "--logfile" || opt == "-l") {
+        }
+        else if (opt == "--dumbpass" || opt == "-d") {
+            cfg_dumbpass = true;
+        }
+        else if (opt == "--weights" || opt == "-w") {
+            cfg_weightsfile = argv[++i];
+            players.push_back("");
+        }
+        else if (opt == "--logfile" || opt == "-l") {
                 cfg_logfile = argv[++i];
                 fprintf(stderr, "Logging to %s.\n", cfg_logfile.c_str());
                 cfg_logfile_handle = fopen(cfg_logfile.c_str(), "a");
@@ -202,7 +201,7 @@ int main(int argc, char **argv) {
         cfg_allow_pondering = false;
     }
     
-    if (cfg_weightsfile.empty() && players.empty()) {
+    if (players.empty()) {
         fprintf(stderr, "A network weights file is required to use the program.\n");
         throw std::runtime_error("A network weights file is required to use the program");
     }
@@ -211,7 +210,7 @@ int main(int argc, char **argv) {
 
     if (append_str.size())
         for (auto& line : players) {
-            if (line != "0")
+            if (line.size())
                 line += append_str;
         }
 
@@ -220,9 +219,9 @@ int main(int argc, char **argv) {
     if (players.size() > 1 || opt_match)
         selfplay(selfpath, players);
     else if (opt_play_mode)
-        advisor(players.empty() ? "" : players[0], selfpath);
+        advisor(players[0], selfpath);
     else
-        gtp(players.empty() ? "" : players[0], selfpath);
+        gtp(players[0], selfpath);
 
     return 0;
 }
@@ -285,7 +284,7 @@ int gtp(const string& cmdline, const string& selfpath) {
         cout << line;
     };
 
-    if (cmdline.empty() || cmdline == "0")
+    if (cmdline.empty())
         agent.execute();
     else
         agent.execute(cmdline, selfpath, wait_time_secs);
@@ -399,7 +398,7 @@ int advisor(const string& cmdline, const string& selfpath) {
         }
     };
 
-    if (cmdline.empty() || cmdline == "0")
+    if (cmdline.empty())
         agent.execute();
     else
         agent.execute(cmdline, selfpath, wait_time_secs);
@@ -482,7 +481,7 @@ int selfplay(const string& selfpath, const vector<string>& players) {
 
     GtpChoice* white_ptr = nullptr;
 
-    if (players.empty() || players[0] == "0")
+    if (players[0].empty())
         black.execute();
     else
         black.execute(players[0], selfpath, wait_time_secs);
@@ -494,7 +493,7 @@ int selfplay(const string& selfpath, const vector<string>& players) {
 
     if (players.size() > 1) {
         white_ptr = &white;
-        if (players[1] == "0")
+        if (players[1].empty())
             white.execute();
         else
             white.execute(players[1], selfpath, wait_time_secs);
