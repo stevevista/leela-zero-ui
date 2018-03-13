@@ -30,7 +30,7 @@ constexpr int wait_time_secs = 40;
 void autogtpui();
 int gtp(const string& cmdline, const string& selfpath);
 int advisor(const string& cmdline, const string& selfpath);
-int playMatch(const string& selfpath, const vector<string>& players);
+int playMatch(int rounds, const string& selfpath, const vector<string>& players);
 
 #ifndef NO_GUI_SUPPORT
 void update_board_by_seqs(go_window& ui, const vector<GtpState::move_t>& seqs) {
@@ -61,6 +61,7 @@ int main(int argc, char **argv) {
     selfpath = selfpath.substr(0, pos); 
 
     vector<string> players;
+    int rounds = 1;
 
     for (int i=1; i<argc; i++) {
         string opt = argv[i];
@@ -100,6 +101,9 @@ int main(int argc, char **argv) {
         else if (opt == "--ui-only") {
             opt_uionly = true;
         }
+        else if (opt == "--rounds") {
+            rounds = stoi(argv[++i]);
+        }
     }
 
     if (!opt_uionly)
@@ -117,7 +121,7 @@ int main(int argc, char **argv) {
         gtp(players[0], selfpath);
     }
     else if (players.size() > 1) {
-        playMatch(selfpath, players);
+        playMatch(rounds, selfpath, players);
     }
     else if (players.size() == 1) {
         advisor(players[0], selfpath);
@@ -371,59 +375,9 @@ static string move_to_text_sgf(int pos, int bdsize) {
     return result.str();
 }
 
-int playMatch(const string& selfpath, const vector<string>& players) {
-
-    GtpChoice black;
-    GtpChoice white;
-
-    black.onInput = [](const string& line) {
-        cout << line << endl;;
-    };
-
-    black.onOutput = [](const string& line) {
-        cout << line;
-    };
-
-    if (players[0].empty())
-        black.execute();
-    else
-        black.execute(players[0], selfpath, wait_time_secs);
-
-    if (!black.isReady()) {
-        std::cerr << "cannot start player 1" << std::endl;
-        return -1;
-    }
-
-    if (players[1].empty())
-        white.execute();
-    else
-        white.execute(players[1], selfpath, wait_time_secs);
-    if (!white.isReady()) {
-        std::cerr << "cannot start player 2" << std::endl;
-        std::cerr << players[1] << endl;
-        return -1;
-    }
-
-#ifndef NO_GUI_SUPPORT
-    go_window my_window;
-    my_window.enable_play_mode(false);
-#endif
+int playMatch(int index, GtpChoice& black, GtpChoice& white, function<void()> uiReset, function<void(bool, int)> uiUpdate) {
 
     bool ok;
-
-    if (default_board_size != 19) {
-        GtpState::send_command_sync(black, "boardsize " + to_string(default_board_size), ok);
-        if (!ok) {
-            std::cerr << "player 1 do not support size " << default_board_size << std::endl;
-            return -1;
-        }
-
-        GtpState::send_command_sync(white, "boardsize " + to_string(default_board_size), ok);
-        if (!ok) {
-            std::cerr << "player 2 do not support size " << default_board_size << std::endl;
-            return -1;
-        }
-    }
 
     auto me = &black;
     auto other = &white;
@@ -435,9 +389,9 @@ int playMatch(const string& selfpath, const vector<string>& players) {
     GtpState::send_command_sync(black, "clear_board");
     GtpState::send_command_sync(white, "clear_board");
 
-#ifndef NO_GUI_SUPPORT
-    my_window.reset(black.boardsize());
-#endif
+
+    uiReset();
+
 
     for (int move_count = 0; move_count<361*2; move_count++) {
             
@@ -468,9 +422,8 @@ int playMatch(const string& selfpath, const vector<string>& players) {
         } else
             last_is_pass = false;
             
-#ifndef NO_GUI_SUPPORT
-        my_window.update(black_to_move, move);
-#endif
+
+        uiUpdate(black_to_move, move);
 
         GtpState::send_command_sync(*other, (black_to_move ? "play b " : "play w ") + vtx, ok);
         if (!ok)
@@ -511,6 +464,88 @@ int playMatch(const string& selfpath, const vector<string>& players) {
     ofs << sgf_string;
     ofs.close();
 
+    if (result[0] == 'B')
+        return 1;
+    else
+        return -1;
+}
+
+int playMatch(int rounds, const string& selfpath, const vector<string>& players) {
+
+    GtpChoice black;
+    GtpChoice white;
+
+    black.onInput = [](const string& line) {
+        cout << line << endl;;
+    };
+
+    black.onOutput = [](const string& line) {
+        cout << line;
+    };
+
+    if (players[0].empty())
+        black.execute();
+    else
+        black.execute(players[0], selfpath, wait_time_secs);
+
+    if (!black.isReady()) {
+        std::cerr << "cannot start player 1" << std::endl;
+        return -1;
+    }
+
+    if (players[1].empty())
+        white.execute();
+    else
+        white.execute(players[1], selfpath, wait_time_secs);
+    if (!white.isReady()) {
+        std::cerr << "cannot start player 2" << std::endl;
+        std::cerr << players[1] << endl;
+        return -1;
+    }
+
+    if (default_board_size != 19) {
+        bool ok;
+        GtpState::send_command_sync(black, "boardsize " + to_string(default_board_size), ok);
+        if (!ok) {
+            std::cerr << "player 1 do not support size " << default_board_size << std::endl;
+            return -1;
+        }
+
+        GtpState::send_command_sync(white, "boardsize " + to_string(default_board_size), ok);
+        if (!ok) {
+            std::cerr << "player 2 do not support size " << default_board_size << std::endl;
+            return -1;
+        }
+    }
+
+#ifndef NO_GUI_SUPPORT
+    go_window my_window;
+    my_window.enable_play_mode(false);
+    my_window.reset(black.boardsize());
+
+    auto uiReset = [&] {
+        my_window.reset();
+    };
+
+    auto uiUpdate = [&](bool black, int move) {
+        my_window.update(black, move);
+    };
+
+#else
+    auto uiReset = [&] {
+    };
+
+    auto uiUpdate = [&](bool, int) {
+    };
+
+#endif
+
+    int wins = 0;
+    for (int i=0; i<rounds; i++) {
+        int re = playMatch(i, black, white, uiReset, uiUpdate);
+        if (re == 1)
+            wins++;
+    }
 
 #ifndef NO_GUI_SUPPORT
     my_window.wait_until_closed();
@@ -519,5 +554,6 @@ int playMatch(const string& selfpath, const vector<string>& players) {
     GtpState::wait_quit(black);
     GtpState::wait_quit(white);
 
-    return 0;
+    cout << wins << "/" << rounds << endl;
 }
+

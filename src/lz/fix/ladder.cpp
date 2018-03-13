@@ -17,10 +17,11 @@ public:
     bool IsWastefulEscape(int color, int v) const;
 
     int find_lib_atr(int vtx) const;
-    unordered_set<int> find_libs(int vtx) const;
+    array<int, 2> find_libs(int vtx, bool atr) const;
 
     void update_board(const int color, const int i);
     int remove_string(int i);
+    int libs(int v) const { return m_libs[m_parent[v]]; }
 
     int m_komove;
 };
@@ -87,14 +88,6 @@ void QuickBoard::update_board(const int color, const int i) {
         }
     }
 
-    m_prisoners[color] += captured_stones;
-
-
-    /* move last vertex in list to our position */
-    auto lastvertex = m_empty[--m_empty_cnt];
-    m_empty_idx[lastvertex] = m_empty_idx[i];
-    m_empty[m_empty_idx[i]] = lastvertex;
-
     /* check whether we still live (i.e. detect suicide) */
     if (m_libs[m_parent[i]] == 0) {
         remove_string(i);
@@ -111,27 +104,14 @@ void QuickBoard::update_board(const int color, const int i) {
 
 int QuickBoard::find_lib_atr(int vtx) const {
 
-    /* loop over stones, update parents */
-    int pos = vtx;
-
-    do {
-        // check if this stone has a liberty
-        for (int k = 0; k < 4; k++) {
-            int ai = pos + m_dirs[k];
-            // for each liberty, check if it is not shared
-            if (m_square[ai] == EMPTY) {
-                return ai;
-            }
-        }
-        pos = m_next[pos];
-    } while (pos != vtx);
-
-    return -1;
+    return find_libs(vtx, true)[0];
 }
 
-unordered_set<int> QuickBoard::find_libs(int vtx) const {
+array<int, 2> QuickBoard::find_libs(int vtx, bool atr) const {
 
-    unordered_set<int> out;
+    array<int, 2> out{-1,-1};
+    int n = 0;
+
     /* loop over stones, update parents */
     int pos = vtx;
 
@@ -141,7 +121,14 @@ unordered_set<int> QuickBoard::find_libs(int vtx) const {
             int ai = pos + m_dirs[k];
             // for each liberty, check if it is not shared
             if (m_square[ai] == EMPTY) {
-                out.insert(ai);
+                if (atr) {
+                    return {ai, -1};
+                }
+                else if (out[0] < 0) out[0] = ai;
+                else if (out[0] != ai) {
+                    out[1] = ai;
+                    return out;
+                }
             }
         }
         pos = m_next[pos];
@@ -173,7 +160,7 @@ bool QuickBoard::isLadder(int v_atr, int depth) const {
                 if (visited.find(m_parent[ai]) == visited.end()) {
                     visited.insert(m_parent[ai]);
                     auto lib_atr = find_lib_atr(ai);
-                    if (lib_atr != m_komove)
+                    if (lib_atr != m_komove && lib_atr != v_esc)
                         possible_escapes.push_back(lib_atr);
                 }
             }
@@ -181,8 +168,7 @@ bool QuickBoard::isLadder(int v_atr, int depth) const {
         pos = m_next[pos];
     } while (pos != v_atr);
 
-    if (v_esc != m_komove &&
-        find(possible_escapes.begin(), possible_escapes.end(), v_esc) == possible_escapes.end()) {
+    if (v_esc != m_komove) {
         possible_escapes.push_back(v_esc);
     }
 
@@ -191,26 +177,29 @@ bool QuickBoard::isLadder(int v_atr, int depth) const {
         QuickBoard b(*this);
 		b.update_board(color, v_cap);
 
-        if(b.m_libs[b.m_parent[v_atr]] <= 1) {
+        if(b.libs(v_atr) <= 1) {
 			continue;
 		}
 
-        if(b.m_libs[b.m_parent[v_atr]] > 2){
+        if(b.libs(v_atr) > 2) {
 			// Return false when number of liberty > 2.
 			return false;
 		}
 
-        auto libs = b.find_libs(v_atr);
-        bool is_ladder = false;
+        auto libs = b.find_libs(v_atr, false);
+        bool captured = false;
 		for(auto lib: libs) {
-			if(lib != b.m_komove) {
+			if(lib != b.m_komove && lib > 0) {
                 QuickBoard bb(b);
 			    bb.update_board(!color, lib);
 				// Recursive search.
-				is_ladder |= bb.isLadder(v_atr, depth + 1);
+				if (bb.isLadder(v_atr, depth + 1)) {
+                    captured = true;
+                    break;
+                }
 			}
 		}
-        if(!is_ladder) return false; // Successfully escape.
+        if(!captured) return false; // Successfully escape.
     }
     return true;
 }
