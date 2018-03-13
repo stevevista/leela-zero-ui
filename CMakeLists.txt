@@ -85,6 +85,8 @@ endif()
 
 SET(SOURCES 
   src/gtp_agent.cpp
+  src/gtp_choice.cpp
+  src/tools.cpp
   ${TINY_PROC_SRC})
 
 
@@ -109,7 +111,8 @@ SET(LZ_SRC src/lz/Network.cpp
             src/lz/NNCache.cpp
             src/lz/Tuner.cpp
             src/lz/OpenCLScheduler.cpp
-            src/lz/OpenCL.cpp)
+            src/lz/OpenCL.cpp
+            src/lz/fix/ladder.cpp)
 
 
 ADD_LIBRARY(objs OBJECT ${SOURCES} ${LZ_SRC})
@@ -117,10 +120,10 @@ ADD_LIBRARY(objs OBJECT ${SOURCES} ${LZ_SRC})
 
 
 if (MSVC)
-ADD_EXECUTABLE(gtpfox WIN32 src/fox.rc $<TARGET_OBJECTS:objs>
-                            src/spy.cpp
-                            src/main.cpp
-                            src/utils.cpp)
+ADD_EXECUTABLE(gtpfox WIN32 src/foxwq/fox.rc $<TARGET_OBJECTS:objs>
+                            src/foxwq/spy.cpp
+                            src/foxwq/main.cpp
+                            src/foxwq/utils.cpp)
 TARGET_LINK_LIBRARIES(gtpfox ${COMMON_LIBS})
 endif()
 

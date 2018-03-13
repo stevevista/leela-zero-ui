@@ -1,6 +1,7 @@
 #include "gui/board_ui.h"
 #include <iostream>
 #include <thread>
+#include <cctype>
 
 using namespace std;
 

@@ -47,6 +47,7 @@
 using namespace Utils;
 
 // Configuration flags
+bool cfg_gtp_mode;
 bool cfg_allow_pondering;
 int cfg_num_threads;
 int cfg_max_threads;
@@ -73,6 +74,7 @@ bool cfg_quiet;
 
 void GTP::setup_default_parameters() {
 
+    cfg_gtp_mode = false;
     cfg_allow_pondering = true;
     cfg_max_threads = std::max(1, std::min(SMP::get_num_cpus(), MAX_CPUS));
 #ifdef USE_OPENCL
@@ -632,11 +634,4 @@ void GTP::run() {
 
 string GTP::version() const {
     return PROGRAM_VERSION;
-}
-
-//////////////////////////////////////////
-
-
-string GtpChoice::version() const {
-    return switch_ == 0 ? gtp_blt.version() : gtp_proc.version();
 }

@@ -7,7 +7,7 @@
 #include <array>
 #include <functional>
 #include <thread>
-#include "lz/GTP.h"
+#include "../gtp_choice.h"
 
 
 class BoardSpy : public GameAdvisor<GtpChoice> {

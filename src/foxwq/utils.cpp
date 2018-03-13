@@ -3,7 +3,7 @@
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_INLINE
-#include "stb/stb_image_write.h"
+#include "../stb/stb_image_write.h"
 
 void fatal(LPCTSTR msg) {
 	MessageBox(NULL, msg, TEXT("spy"),
