@@ -334,6 +334,9 @@ bool BoardSpy::scanBoard(HWND hWnd, int data[], int& lastMove) {
 bool BoardSpy::locateStartPosition(Hdib& hdib, int& startx, int& starty) {
 
 	// skip title bar
+	if (hdib.width() < 50 || hdib.height() < 50)
+		return false;
+
 	for (int i=30; i<50; i++) {
 		for (int j=2; j<50; j++) {
 			if (square_diff(hdib.rgb(j,i), RGB(60,60,60)) > 0.98) {
@@ -576,7 +579,8 @@ bool BoardSpy::initialBoard(HWND hWnd) {
 		std::fill(board_last_.begin(), board_last_.end(), 0);
 		memset(board_age, 0, sizeof(board_age));
 	
-		reset(stone_counts == 1 ? false : true);
+		//reset(stone_counts == 1 ? false : true);
+		reset(false);
 	}
 
 	return true;
@@ -660,6 +664,7 @@ inline void trim(std::string &ss)
 void BoardSpy::init(const std::string& cfg_path) {
 
 	GTP::setup_default_parameters();
+	cfg_max_visits = 3200;
 
 	vector<string> players;
 	parseLeelaZeroArgs(__argc, __argv, players);
