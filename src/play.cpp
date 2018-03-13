@@ -542,18 +542,30 @@ int playMatch(int rounds, const string& selfpath, const vector<string>& players)
 
     int wins = 0;
     for (int i=0; i<rounds; i++) {
-        int re = playMatch(i, black, white, uiReset, uiUpdate);
+
+        int sel = 0;
+        int re;
+        if (rounds > 1)
+            sel = rand()%2;
+
+        if (sel == 0) {
+            re = playMatch(i, black, white, uiReset, uiUpdate);
+        } else {
+            re = playMatch(i, white, black, uiReset, uiUpdate);
+            re *= -1;
+        }
+
         if (re == 1)
             wins++;
     }
 
+    cout << wins << "/" << rounds << endl;
+    
 #ifndef NO_GUI_SUPPORT
     my_window.wait_until_closed();
 #endif
 
     GtpState::wait_quit(black);
     GtpState::wait_quit(white);
-
-    cout << wins << "/" << rounds << endl;
 }
 

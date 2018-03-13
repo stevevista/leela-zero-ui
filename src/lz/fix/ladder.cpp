@@ -6,7 +6,7 @@ using namespace std;
 
 class QuickBoard : public FastBoard {
 public:
-    explicit QuickBoard() = default;
+    explicit QuickBoard() = delete;
     explicit QuickBoard(const FastState& rhs) {
         // Copy in fields from base class.
         *(static_cast<FastBoard*>(this)) = rhs.board;
@@ -36,10 +36,6 @@ int QuickBoard::remove_string(int i) {
         m_parent[pos] = MAXSQ;
 
         remove_neighbour(pos, color);
-
-        m_empty_idx[pos]      = m_empty_cnt;
-        m_empty[m_empty_cnt]  = pos;
-        m_empty_cnt++;
 
         removed++;
         pos = m_next[pos];
