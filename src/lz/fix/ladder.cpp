@@ -4,12 +4,12 @@
 
 using namespace std;
 
-class QuickBoard : public FullBoard {
+class QuickBoard : public FastBoard {
 public:
     explicit QuickBoard() = default;
     explicit QuickBoard(const FastState& rhs) {
         // Copy in fields from base class.
-        *(static_cast<FullBoard*>(this)) = rhs.board;
+        *(static_cast<FastBoard*>(this)) = rhs.board;
         m_komove = rhs.m_komove;
     }
 
@@ -19,8 +19,94 @@ public:
     int find_lib_atr(int vtx) const;
     unordered_set<int> find_libs(int vtx) const;
 
+    void update_board(const int color, const int i);
+    int remove_string(int i);
+
     int m_komove;
 };
+
+int QuickBoard::remove_string(int i) {
+    int pos = i;
+    int removed = 0;
+    int color = m_square[i];
+
+    do {
+        m_square[pos] = EMPTY;
+        m_parent[pos] = MAXSQ;
+
+        remove_neighbour(pos, color);
+
+        m_empty_idx[pos]      = m_empty_cnt;
+        m_empty[m_empty_cnt]  = pos;
+        m_empty_cnt++;
+
+        removed++;
+        pos = m_next[pos];
+    } while (pos != i);
+
+    return removed;
+}
+
+void QuickBoard::update_board(const int color, const int i) {
+
+    m_square[i] = (square_t)color;
+    m_next[i] = i;
+    m_parent[i] = i;
+    m_libs[i] = count_pliberties(i);
+    m_stones[i] = 1;
+
+    /* update neighbor liberties (they all lose 1) */
+    add_neighbour(i, color);
+
+    /* did we play into an opponent eye? */
+    auto eyeplay = (m_neighbours[i] & s_eyemask[!color]);
+
+    auto captured_stones = 0;
+    int captured_sq;
+
+    for (int k = 0; k < 4; k++) {
+        int ai = i + m_dirs[k];
+
+        if (m_square[ai] == !color) {
+            if (m_libs[m_parent[ai]] <= 0) {
+                int this_captured = remove_string(ai);
+                captured_sq = ai;
+                captured_stones += this_captured;
+            }
+        } else if (m_square[ai] == color) {
+            int ip = m_parent[i];
+            int aip = m_parent[ai];
+
+            if (ip != aip) {
+                if (m_stones[ip] >= m_stones[aip]) {
+                    merge_strings(ip, aip);
+                } else {
+                    merge_strings(aip, ip);
+                }
+            }
+        }
+    }
+
+    m_prisoners[color] += captured_stones;
+
+
+    /* move last vertex in list to our position */
+    auto lastvertex = m_empty[--m_empty_cnt];
+    m_empty_idx[lastvertex] = m_empty_idx[i];
+    m_empty[m_empty_idx[i]] = lastvertex;
+
+    /* check whether we still live (i.e. detect suicide) */
+    if (m_libs[m_parent[i]] == 0) {
+        remove_string(i);
+    }
+
+    /* check for possible simple ko */
+    if (captured_stones == 1 && eyeplay) {
+        m_komove = captured_sq;
+    }
+    else 
+        m_komove = 0;
+}
 
 
 int QuickBoard::find_lib_atr(int vtx) const {
@@ -103,7 +189,7 @@ bool QuickBoard::isLadder(int v_atr, int depth) const {
     for(auto v_cap: possible_escapes) {
 
         QuickBoard b(*this);
-		b.m_komove = b.update_board(color, v_cap);
+		b.update_board(color, v_cap);
 
         if(b.m_libs[b.m_parent[v_atr]] <= 1) {
 			continue;
@@ -119,7 +205,7 @@ bool QuickBoard::isLadder(int v_atr, int depth) const {
 		for(auto lib: libs) {
 			if(lib != b.m_komove) {
                 QuickBoard bb(b);
-			    bb.m_komove = bb.update_board(!color, lib);
+			    bb.update_board(!color, lib);
 				// Recursive search.
 				is_ladder |= bb.isLadder(v_atr, depth + 1);
 			}

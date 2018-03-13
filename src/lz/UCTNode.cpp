@@ -96,9 +96,9 @@ bool UCTNode::create_children(std::atomic<int>& nodecount,
     for (auto& node : raw_netlist.first) {
         auto vertex = node.second;
         if (state.is_move_legal(to_move, vertex)) {
-            
+
             // Reduce probability of moves escaping from Ladder.
-            if (IsWastefulEscape(state, to_move, node.second))
+            if (IsWastefulEscape(state, to_move, vertex))
                 node.first *= 0.001;
 
             nodelist.emplace_back(node);

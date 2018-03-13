@@ -185,9 +185,9 @@ void parseLeelaZeroArgs(int argc, char **argv, vector<string>& players) {
             string player = argv[++i];
             if (player.find(" ") == string::npos && player.find(".txt") != string::npos) {
 #ifdef _WIN32
-                player = "leelaz.exe -g -q -w " + player;
+                player = "leelaz.exe -g -w " + player;
 #else
-                player = "./leelaz -g -q -w " + player;
+                player = "./leelaz -g -w " + player;
 #endif
             }
             players.push_back(player);
