@@ -295,7 +295,7 @@ int advisor(const string& cmdline, const string& selfpath) {
         agent.hint_both(true);
 
 
-    agent.onThinkMove = [&](bool black, int move) {
+    agent.onThinkMove = [&](bool black, int move, const std::vector<std::pair<int,float>>& dist) {
 
         if (black == opt_comupter_is_black) {
             agent.place(black, move);
@@ -305,6 +305,10 @@ int advisor(const string& cmdline, const string& selfpath) {
             my_window.indicate(move);
 #endif    
             cout << "suggest move: " << agent.move_to_text(move) << endl;
+            for (auto p : dist) {
+                cout << "P: " << p.second << endl;
+
+            }
         }
     };
 

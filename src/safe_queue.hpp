@@ -74,6 +74,11 @@ class safe_queue
          std::lock_guard<std::mutex> lk(mut);  
          return data_queue.empty();  
      }  
+     void clear() {
+         std::lock_guard<std::mutex> lk(mut); 
+         while(!data_queue.empty()) 
+            data_queue.pop();
+     }
 }; 
 
 
@@ -152,8 +157,8 @@ class safe_dqueue
      }  
 
      void clear() {
-         T value;
-         while (!empty()) try_pop(value);
+         std::lock_guard<std::mutex> lk(mut);  
+         data_queue.clear();
      }
 }; 
 

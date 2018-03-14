@@ -147,6 +147,31 @@ std::string GTP::get_life_list(const GameState & game, bool live) {
 
 bool GTP::input_pending_ = false;
 
+static GTP* gtp_inst = nullptr;
+
+bool GTP::vstderr(const char *fmt, va_list ap) {
+
+    if (gtp_inst && gtp_inst->onStderr) {
+        char buf[4096];
+        vsprintf(buf, fmt, ap);
+        gtp_inst->onStderr(buf);
+        return true;
+    }
+    return false;
+}
+
+
+
+GTP::GTP()
+{
+    gtp_inst = this;
+}
+
+GTP::~GTP() {
+    gtp_inst = nullptr;
+}
+
+
 void GTP::send_command(const std::string& cmd, function<void(bool, const string&)> handler) {
     command_queue_.push({cmd, handler});
 }
@@ -339,7 +364,7 @@ void GTP::run() {
  
         } else if (command.find("list_commands") == 0) {
             std::string outtmp(s_commands[0]);
-            for (int i = 1; s_commands[i].size() > 0; i++) {
+            for (int i = 1; i < s_commands.size(); i++) {
                 outtmp = outtmp + "\n" + s_commands[i];
             }
             gtp_print(outtmp.c_str());

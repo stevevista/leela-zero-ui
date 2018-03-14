@@ -14,6 +14,7 @@ class GtpState {
 public:
     function<void(const string& line)> onInput;
     function<void(const string& line)> onOutput;
+    function<void(const string& line)> onStderr;
     function<void()> onReset;
 
     static constexpr int pass_move = -1;
@@ -105,7 +106,6 @@ protected:
 class GtpProcess : public GtpState {
 public:
     function<void(const string& line)> onUnexpectOutput;
-    function<void(const string& line)> onStderr;
 
     void execute(const string& cmdline, const string& path="", const int wait_secs=0);
     bool restore(int secs=10);

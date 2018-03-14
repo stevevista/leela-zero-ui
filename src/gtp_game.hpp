@@ -1,6 +1,8 @@
 #pragma once
 
 #include "gtp_agent.h"
+#include <iostream>
+#include <algorithm>
 
 template<class TGTP>
 class GameAdvisor : public TGTP {
@@ -14,7 +16,7 @@ public:
             events_.push({"output", line});
         };
         TGTP::onReset = [this]() {
-            while (!events_.empty()) events_.try_pop();
+            events_.clear();
             pending_reset_ = false;
             commit_pending_ = false;
             events_.push({"reset"});
@@ -23,6 +25,72 @@ public:
             execute_next_move();
         };
 
+        TGTP::onStderr = [this](const string& line) {
+
+            buffer_ += line;
+            auto lr = buffer_.rfind('\n');
+            if (lr != string::npos) {
+                auto str = buffer_.substr(0, lr);
+                buffer_ = buffer_.substr(lr+1);
+
+                std::istringstream ss(str);
+                string subline;
+                while (std::getline(ss, subline)) {
+
+                    auto p = subline.find_first_not_of(' ');  
+                    if (p >= 1) 
+	                    subline.erase(subline.begin(), subline.begin()+p);
+
+                    // something like this
+                    // R4 ->       2 (V: 48.33%) (N:  8.69%) PV: R4 D16
+                    if (subline.size() > 30 &&
+                        ( (subline[0] >='A' && subline[0] <='T' && subline[1] >='1' && subline[1] <='9') || 
+                           subline.find("pass") == 0 || 
+                           subline.find("resign") == 0)
+                        ) 
+                    {
+
+                        // R4
+                        int move = GtpState::invalid_move;
+                        if (subline[0]=='p') GtpState::pass_move;
+                        else if (subline[0]=='r') GtpState::resign_move;
+                        else {
+                            int column;
+                            if (subline[0] < 'I') {
+                                column = subline[0] - 'A';
+                            } else {
+                                column = (subline[0] - 'A')-1;
+                            }
+                            int row = stoi(subline.substr(1, 3));
+                            row--;
+                            if (row < 19)
+                                move = row*19 + column;
+                        }
+
+                        if (move != GtpState::invalid_move) {
+                            // ->       2 (V: 48.33%) (N:  8.69%) PV: R4 D16
+                            p = subline.find("-> ", 3);
+                            if (p != string::npos) {
+                                p = subline.find_first_not_of(' ', p+3);
+                                // 2 (V: 48.33%) (N:  8.69%) PV: R4 D16
+                                if (p != string::npos && std::isdigit(subline[p])) {
+                                    // (V: 48.33%) (N:  8.69%) PV: R4 D16
+                                    p = subline.find("(V: ", p+1);
+                                    if (p != string::npos) {
+                                        // 48.33%) (N:  8.69%) PV: R4 D16
+                                        auto fv = std::stof(subline.substr(p+4));
+                                        fv /= 100.0f;
+                                        dists_.push_back({move, fv});
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            std::cerr << line << std::flush;
+        };
     }
 
     bool next_move_is_black() const {
@@ -38,7 +106,7 @@ public:
     }
 
     function<void()> onResetGame;
-    function<void(bool,int)> onThinkMove;
+    function<void(bool,int, const vector<pair<int,float>>&)> onThinkMove;
     function<void()> onThinkPass;
     function<void()> onThinkResign;
     function<void()> onThinkBegin;
@@ -79,7 +147,7 @@ public:
                 bool black_move = ev[1] == "b";
                 int move = stoi(ev[2]);
                 if (onThinkMove)
-                    onThinkMove(black_move, move);
+                    onThinkMove(black_move, move, dists_);
             }
             else if (ev[0] == "pass") {
                 if (onThinkPass)
@@ -193,6 +261,8 @@ protected:
         
         events_.push({"think", black_move ? "b" : "w"});
 
+        dists_.clear();
+
         TGTP::send_command(black_move ? "genmove b" : "genmove w", [black_move, this](bool success, const string& rsp) {
 
             if (!success) {
@@ -247,8 +317,10 @@ private:
     int commit_pos_;
     vector<string> init_cmds;
 
-
     safe_dqueue<GtpState::move_t> to_moves_;
+
+    string buffer_;
+    vector<pair<int,float>> dists_;
 };
 
 

@@ -7,6 +7,7 @@ class GtpChoice {
 public:
     function<void(const string& line)> onInput;
     function<void(const string& line)> onOutput;
+    function<void(const string& line)> onStderr;
     function<void()> onReset;
 
     static constexpr int pass_move = GtpState::pass_move;
@@ -19,6 +20,9 @@ public:
         gtp_blt.onInput = onInput;
         gtp_blt.onOutput = onOutput;
         gtp_blt.onReset = onReset;
+        if (onStderr) gtp_blt.onStderr = onStderr;
+        else
+            gtp_blt.onStderr = [](const string& line) { std::cerr << line << std::flush;  };
         gtp_blt.execute();
     }
 
@@ -27,7 +31,9 @@ public:
         gtp_proc.onInput = onInput;
         gtp_proc.onOutput = onOutput;
         gtp_proc.onReset = onReset;
-        gtp_proc.onStderr = [](const string& line) { std::cerr << line << std::endl;  };
+        if (onStderr) gtp_proc.onStderr = onStderr;
+        else
+            gtp_proc.onStderr = [](const string& line) { std::cerr << line << std::flush;  };
         gtp_proc.execute(cmdline, path, wait_secs);
     }
 

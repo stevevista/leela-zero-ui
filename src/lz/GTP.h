@@ -68,6 +68,11 @@ class GTP : public GtpState {
     std::atomic<bool> ready_{false};
     
 public:
+    GTP();
+    ~GTP();
+
+    static bool vstderr(const char *fmt, va_list ap);
+
     static void setup_default_parameters();
 
     static bool input_pending() { return input_pending_; }

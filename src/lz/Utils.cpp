@@ -45,7 +45,10 @@ void Utils::myprintf(const char *fmt, ...) {
     }
     va_list ap;
     va_start(ap, fmt);
-    vfprintf(stderr, fmt, ap);
+    
+    if (!GTP::vstderr(fmt, ap))
+        vfprintf(stderr, fmt, ap);
+
     va_end(ap);
 
     if (cfg_logfile_handle) {
