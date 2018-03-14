@@ -260,7 +260,8 @@ int advisor(const string& cmdline, const string& selfpath) {
     };
 
     auto sync_ui_board = [&]() {
-        if (agent.next_move_is_black() == !opt_comupter_is_black)
+        auto seq = agent.get_move_sequence();
+        if (seq.size() && seq.back().is_black == opt_comupter_is_black)
             update_board_by_seqs(my_window, agent.get_move_sequence());
     };
     
@@ -295,7 +296,7 @@ int advisor(const string& cmdline, const string& selfpath) {
         agent.hint_both(true);
 
 
-    agent.onThinkMove = [&](bool black, int move, const std::vector<std::pair<int,float>>& dist) {
+    agent.onThinkMove = [&](bool black, int move, const std::vector<genmove_stats>& dist) {
 
         if (black == opt_comupter_is_black) {
             agent.place(black, move);
@@ -306,7 +307,7 @@ int advisor(const string& cmdline, const string& selfpath) {
 #endif    
             cout << "suggest move: " << agent.move_to_text(move) << endl;
             for (auto p : dist) {
-                cout << "P: " << p.second << endl;
+                cout << "P: " << p.score << endl;
 
             }
         }

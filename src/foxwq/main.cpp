@@ -246,7 +246,7 @@ void Dialog::onInit() {
 		wndLabel_.update();
 	};
 
-	spy.onThinkMove = [&](bool black_player, int move, const std::vector<std::pair<int,float>>& dist) {
+	spy.onThinkMove = [&](bool black_player, int move, const std::vector<genmove_stats>& dist) {
 
 		bool autoplay = auto_play_;
 

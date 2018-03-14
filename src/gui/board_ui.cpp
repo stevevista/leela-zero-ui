@@ -652,6 +652,9 @@ template<typename T>
 void load_image(const std::string& path, T& t_) {
 	int x, y, c;
 	auto result = stbi_load(path.c_str(),&x,&y,&c,4);
+    if (!result)
+        return;
+
 	//std::cout << x << std::endl;
 	//std::cout << y << std::endl;
 	//std::cout << c << std::endl;
@@ -682,8 +685,7 @@ go_window::go_window()
     scale_res();
 
     auto_mutex M(wm);
-    const auto r = dlib::get_rect(img_wood);
-    set_size(r.width(), r.height());
+    set_size(rect_.width(), rect_.height());
 
     show();
 }
@@ -706,12 +708,9 @@ void go_window::load_res() {
 		path_base = path_base.substr(0, pos_filename + 1);
 	}
 
-	load_image(path_base + "res/wood_1024.png", img_wood_src);
-	load_image(path_base + "res/black_64.png", img_black_src);
-	load_image(path_base + "res/white_64.png", img_white_src);
-    //load_png(img_wood_src, "res/wood_1024.png");
-    //load_png(img_black_src, "res/black_64.png");
-    //load_png(img_white_src, "res/white_64.png");
+	load_image(path_base + "res/wood.png", img_wood_src);
+	load_image(path_base + "res/black.png", img_black_src);
+	load_image(path_base + "res/white.png", img_white_src);
 }
 
 void go_window::scale_res() {
@@ -719,20 +718,28 @@ void go_window::scale_res() {
     auto_mutex M(wm);
 
     long wood_size = radius*2 * board_.board_size() + edge_size*2;
-    img_wood.set_size(wood_size, wood_size);
-    resize_image(img_wood_src, img_wood);
+    rect_ = rectangle(wood_size, wood_size);
 
-    img_black.set_size(radius*2, radius*2);
-    resize_image(img_black_src, img_black);
+    if (img_wood_src.size()) {
+        img_wood.set_size(wood_size, wood_size);
+        resize_image(img_wood_src, img_wood);
+    }
 
-    img_white.set_size(radius*2, radius*2);
-    resize_image(img_white_src, img_white);
+    if (img_black_src.size()) {
+        img_black.set_size(radius*2, radius*2);
+        resize_image(img_black_src, img_black);
+    }
+
+    if (img_white_src.size()) {
+        img_white.set_size(radius*2, radius*2);
+        resize_image(img_white_src, img_white);
+    }
 }
 
 
 void go_window::paint(const canvas& c) {
 
-    c.fill(212,208,200);
+    c.fill(255,178,102);
 
     draw_image(c, {0, 0}, img_wood);
     draw_grid(c);
@@ -819,7 +826,14 @@ void go_window::draw_stone(const canvas& c, long x, long y, int black, int mark)
     auto center = loc(x, y);
     auto left = center[0] - radius;
     auto top = center[1] - radius;
-    draw_image(c, {left, top}, black ? img_black : img_white);
+    //
+    if (img_black.size() && img_white.size()) {
+        draw_image(c, {left, top}, black ? img_black : img_white);
+    }
+    else {
+        draw_solid_circle(c, center, radius-1, black ? rgb_alpha_pixel(0, 0, 0, 255) : rgb_alpha_pixel(255, 255, 255, 255));
+        draw_circle(c, center, radius, rgb_alpha_pixel(102, 102, 102, 255));
+    }
 
     if (mark)
         draw_mark(c, x, y, black ? rgb_alpha_pixel(255, 255, 255, 255) : rgb_alpha_pixel(0, 0, 0, 255));
@@ -857,7 +871,7 @@ void go_window::reset(int bdsize, bool refresh) {
 }
 
 void go_window::invalidate() {
-    invalidate_rectangle(get_rect(img_wood));
+    invalidate_rectangle(rect_);
 }
 
 //  ----------------------------------------------------------------------------
@@ -879,7 +893,7 @@ void go_window::on_mouse_move (
 
     if (mark_xy != new_mark) {
         mark_xy = new_mark;
-        invalidate_rectangle(get_rect(img_wood));
+        invalidate_rectangle(rect_);
     }
 
     
@@ -919,5 +933,5 @@ void go_window::on_mouse_up (
 
 void go_window::indicate(int pos) { 
     indicate_xy = pos; 
-    invalidate_rectangle(get_rect(img_wood));
+    invalidate_rectangle(rect_);
 }

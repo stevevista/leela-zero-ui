@@ -86,6 +86,7 @@ endif()
 SET(SOURCES 
   src/gtp_agent.cpp
   src/gtp_choice.cpp
+  src/gtp_game.cpp
   src/tools.cpp
   ${TINY_PROC_SRC})
 

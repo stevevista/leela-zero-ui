@@ -63,7 +63,7 @@ private:
     array2d<rgb_alpha_pixel> img_black;
     array2d<rgb_alpha_pixel> img_white;
 
-    long radius = 16;
+    long radius{16};
     long edge_size = 10;
 
     int last_xy{-1};
@@ -72,4 +72,6 @@ private:
     bool black_move{true};
     bool play_mode{true};
     GoBoard board_;
+
+    rectangle rect_;
 };
