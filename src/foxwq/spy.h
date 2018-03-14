@@ -8,7 +8,7 @@
 #include <functional>
 #include <thread>
 #include "../gtp_choice.h"
-
+#include "../gtp_game.hpp"
 
 class BoardSpy : public GameAdvisor<GtpChoice> {
 public:

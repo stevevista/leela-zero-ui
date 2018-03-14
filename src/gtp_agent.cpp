@@ -103,17 +103,6 @@ int GtpState::text_to_move(const string& vertex) const {
     return move;
 }
 
-string GtpState::pending_command() {
-    command_t cmd;
-    command_queue_.try_peek(cmd);
-    return cmd.cmd;
-}
-
-bool GtpState::playing_pending() {
-    auto pending = pending_command();
-    return (pending.find("genmove ") == 0 || pending.find("play ") == 0);
-}
-
 void GtpState::clean_command_queue() {
 
     command_t cmd;
@@ -133,12 +122,6 @@ void GtpState::clean_up() {
     clean_command_queue();
     board_size_ = 19;
     clean_board();
-}
-
-bool GtpState::next_move_is_black() const {
-
-    return (handicaps_.empty() && history_moves_.empty()) ||
-            (history_moves_.size() && !history_moves_.back().is_black);
 }
 
 vector<GtpState::move_t> GtpState::get_move_sequence() const {
@@ -256,8 +239,6 @@ void GtpProcess::execute(const string& cmdline, const string& path, const int wa
         std::lock_guard<std::mutex> lk(mtx_); 
         support_commands_ = split_str(rsp, '\n'); 
         ready_ = true;
-        if (onReset)
-            onReset();
     });
 
     if (wait_secs == 0) {

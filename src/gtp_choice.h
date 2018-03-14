@@ -60,14 +60,6 @@ public:
             gtp_proc.send_command(cmd, handler);
     }
 
-    bool next_move_is_black() const {
-        return switch_ == 0 ? gtp_blt.next_move_is_black() : gtp_proc.next_move_is_black();
-    }
-
-    bool playing_pending() {
-        return switch_ == 0 ? gtp_blt.playing_pending() : gtp_proc.playing_pending();
-    }
-
     string move_to_text(int move) const {
         return switch_ == 0 ? gtp_blt.move_to_text(move) : gtp_proc.move_to_text(move);
     }

@@ -2,6 +2,7 @@
 
 
 #include "gtp_choice.h"
+#include "gtp_game.hpp"
 #include <fstream>
 #include <cassert>
 #include <cstring>

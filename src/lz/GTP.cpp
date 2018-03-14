@@ -256,9 +256,6 @@ void GTP::run() {
     bool pondering = false;
     string command;
 
-    if (onReset)
-        onReset();
-
     for (;;) {
 
         
