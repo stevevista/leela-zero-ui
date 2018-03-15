@@ -15,7 +15,14 @@
 #include <unistd.h>
 #endif
 
-
+static std::vector<rgb_alpha_pixel> colormap = {
+    rgb_alpha_pixel(128,221,35,200),
+    rgb_alpha_pixel(221,161,102,200),
+    rgb_alpha_pixel(221,173,124,200),
+    rgb_alpha_pixel(221,195,168,200),
+    rgb_alpha_pixel(221,206,190,200),
+    rgb_alpha_pixel(221,217,212,200),
+};
 // ----------------------------------------------------------------------------------------
 
 template<typename T>
@@ -59,21 +66,26 @@ board_display::board_display(drawable_window& w)
 }
 
 
-point board_display::stone_pt(long x, long y) const {
+point board_display::stone_pt(int x, int y) const {
 
-    long left = rect.left() + edge_size + x*stone_size();
-    long top = rect.top() + edge_size + (boardsize_-1-y)*stone_size();
-    return point( left+radius_, top+radius_ );
+    long left = corner_left() + x*stone_size();
+    long top = corner_top() + (boardsize_-1-y)*stone_size();
+    return point( left+radius_+1, top+radius_+1 );
 }
 
-rectangle board_display::stone_rect(long x, long y) const {
+point board_display::stone_pt(int pos) const {
 
-    long left = rect.left() + edge_size + x*stone_size();
-    long top = rect.top() + edge_size + (boardsize_-1-y)*stone_size();
+    return stone_pt( pos%boardsize_, pos/boardsize_ );
+}
+
+rectangle board_display::stone_rect(int x, int y) const {
+
+    long left = corner_left() + x*stone_size();
+    long top = corner_top() + (boardsize_-1-y)*stone_size();
     return rectangle(left, top, left+stone_size()-1, top+stone_size()-1);
 }
 
-rectangle board_display::stone_rect(long pos) const {
+rectangle board_display::stone_rect(int pos) const {
 
     if (pos < 0)
         return rectangle();
@@ -143,7 +155,7 @@ void board_display::draw(const canvas& c) const {
 void board_display::draw_grid(const canvas& c) const {
 
     long len = stone_size() * (boardsize_ - 1);
-    long start = radius_+edge_size;
+    long start = stone_pt(0, boardsize_-1).x();
 
     long y = start;
     for (int i=0; i< boardsize_; i++, y+= stone_size()) {
@@ -165,15 +177,15 @@ void board_display::draw_grid(const canvas& c) const {
 
     //  star
     if (boardsize_ == 19) {
-        draw_solid_circle(c, point(3,3), 3, rgb_alpha_pixel(0, 0, 0, 100));
-        draw_solid_circle(c, point(3,9), 3, rgb_alpha_pixel(0, 0, 0, 100));
-        draw_solid_circle(c, point(3,15), 3, rgb_alpha_pixel(0, 0, 0, 100));
-        draw_solid_circle(c, point(9,3), 3, rgb_alpha_pixel(0, 0, 0, 100));
-        draw_solid_circle(c, point(9,9), 3, rgb_alpha_pixel(0, 0, 0, 100));
-        draw_solid_circle(c, point(9,15), 3, rgb_alpha_pixel(0, 0, 0, 100));
-        draw_solid_circle(c, point(15,3), 3, rgb_alpha_pixel(0, 0, 0, 100));
-        draw_solid_circle(c, point(15,9), 3, rgb_alpha_pixel(0, 0, 0, 100));
-        draw_solid_circle(c, point(15,15), 3, rgb_alpha_pixel(0, 0, 0, 100));
+        draw_solid_circle(c, stone_pt(3,3), 3, rgb_alpha_pixel(0, 0, 0, 100));
+        draw_solid_circle(c, stone_pt(3,9), 3, rgb_alpha_pixel(0, 0, 0, 100));
+        draw_solid_circle(c, stone_pt(3,15), 3, rgb_alpha_pixel(0, 0, 0, 100));
+        draw_solid_circle(c, stone_pt(9,3), 3, rgb_alpha_pixel(0, 0, 0, 100));
+        draw_solid_circle(c, stone_pt(9,9), 3, rgb_alpha_pixel(0, 0, 0, 100));
+        draw_solid_circle(c, stone_pt(9,15), 3, rgb_alpha_pixel(0, 0, 0, 100));
+        draw_solid_circle(c, stone_pt(15,3), 3, rgb_alpha_pixel(0, 0, 0, 100));
+        draw_solid_circle(c, stone_pt(15,9), 3, rgb_alpha_pixel(0, 0, 0, 100));
+        draw_solid_circle(c, stone_pt(15,15), 3, rgb_alpha_pixel(0, 0, 0, 100));
     }
 }
 
@@ -193,7 +205,33 @@ void board_display::draw_stones(const canvas& c) const {
     }
 
     if (indicate_xy >= 0) {
-        draw_solid_circle(c, stone_pt(indicate_xy%boardsize_, indicate_xy/boardsize_), radius_*0.7, rgb_alpha_pixel(255, 0, 0, 128));
+        
+        //string text = "56%\n(1233)";
+        //mfont->draw_string(c, stone_rect(indicate_xy), text, rgb_pixel(0,0,0));
+
+        if (indicate_stats.size()) {
+            
+            int cindex = 0;
+            for (auto& st : indicate_stats) {
+                if (st.move < 0)
+                    continue;
+
+                draw_solid_circle(c, stone_pt(st.move), radius_*0.7, colormap[cindex]);
+                //string text = "56%\n(1233)";
+                char buf[64];
+                sprintf(buf, "%2.2f%%", st.score*100);
+                
+                auto text = string(buf);
+                mfont->draw_string(c, stone_rect(st.move), text, rgb_pixel(0,0,0));
+
+                if (cindex < colormap.size()-1)
+                    cindex++;
+            }
+        }
+        else {
+            draw_solid_circle(c, stone_pt(indicate_xy), radius_*0.7, rgb_alpha_pixel(255, 0, 0, 128));
+        }
+
     }
 }
 
@@ -261,7 +299,7 @@ void board_display::
     rectangle old(rect);
 
 	auto length = std::min(width, height);
-    auto new_radius = (length - edge_size*2) / (boardsize_*2) + 1;
+    auto new_radius = (length - edge_size*2) / (boardsize_*2);
 
     if (new_radius != radius_ && new_radius > 10) {
         radius_ = new_radius;
@@ -349,6 +387,11 @@ void board_display::indicate(int pos) {
     parent.invalidate_rectangle(stone_rect(pos));
 }
 
+void board_display::indicate(int pos, const std::vector<genmove_stats>& stats) {
+    indicate_xy = pos; 
+    indicate_stats = stats; 
+    parent.invalidate_rectangle(rect);
+}
 
 go_window::go_window()
 :board(*this)

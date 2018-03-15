@@ -312,7 +312,7 @@ int advisor(const string& cmdline, const string& selfpath) {
         agent.hint_both(true);
 
 
-    agent.onThinkMove = [&](bool black, int move, const std::vector<genmove_stats>& dist) {
+    agent.onThinkMove = [&](bool black, int move, const std::vector<genmove_stats>& stats) {
 
         if (black == opt_comupter_is_black) {
             agent.place(black, move);
@@ -320,13 +320,9 @@ int advisor(const string& cmdline, const string& selfpath) {
         else {
 #ifndef NO_GUI_SUPPORT
             if (board_ui)
-                board_ui->indicate(move);
+                board_ui->indicate(move, stats);
 #endif    
             cout << "suggest move: " << agent.move_to_text(move) << endl;
-            for (auto p : dist) {
-                cout << "P: " << p.score << endl;
-
-            }
         }
     };
 

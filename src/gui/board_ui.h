@@ -4,7 +4,7 @@
 #include "../dlib/gui_widgets.h"
 #include "../dlib/array2d.h"
 #include "board.h"
-
+#include "../gtp_game.hpp"
 
 using namespace std;
 using namespace dlib;
@@ -25,6 +25,7 @@ public:
 
     void enable_play_mode(bool v) {play_mode = v;}
     void indicate(int pos);
+    void indicate(int pos, const std::vector<genmove_stats>& stats);
 
     function<bool(bool,int)> onMoveClick;
 	
@@ -57,10 +58,13 @@ private:
 
 private:
     void rescale();
-    long stone_size() const { return radius_*2-1; }
-    point stone_pt(long x, long y) const;
-    rectangle stone_rect(long x, long y) const;
-    rectangle stone_rect(long pos) const;
+    long stone_size() const { return radius_*2+1; }
+    long corner_left() const { return rect.left() + edge_size; }
+    long corner_top() const { return rect.top() + edge_size; }
+    point stone_pt(int x, int y) const;
+    point stone_pt(int pos) const;
+    rectangle stone_rect(int x, int y) const;
+    rectangle stone_rect(int pos) const;
     int pt_to_stone_pos(long left ,long top) const;
 
     long radius_{16};
@@ -80,7 +84,10 @@ private:
 	
 	int last_xy{-1};
     int mark_xy{-1};
+
     int indicate_xy{-1};
+    std::vector<genmove_stats> indicate_stats;
+
     bool black_move{true};
     bool play_mode{true};
     int boardsize_;
@@ -96,6 +103,7 @@ public:
 
     void enable_play_mode(bool v) { board.enable_play_mode(v); }
     void indicate(int pos) { board.indicate(pos); }
+    void indicate(int pos, const std::vector<genmove_stats>& stats) { board.indicate(pos, stats); }
 
     void setMoveClickHandler(function<bool(bool,int)> f) {
         board.onMoveClick = f;

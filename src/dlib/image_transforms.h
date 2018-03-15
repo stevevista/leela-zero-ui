@@ -10,8 +10,6 @@
 
 #include "image_transforms/assign_image.h"
 #include "image_transforms/draw.h"
-#include "image_transforms/integral_image.h"
-#include "image_transforms/colormaps.h"
 #include "image_transforms/interpolation.h"
 
 #endif // DLIB_IMAGE_TRANSFORMs_
