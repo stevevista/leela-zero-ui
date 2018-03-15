@@ -161,17 +161,42 @@ else()
 endif()
 
 
+set(dlib_source_files 
+            src/dlib/base64/base64_kernel_1.cpp
+            src/dlib/entropy_decoder/entropy_decoder_kernel_1.cpp
+            src/dlib/entropy_decoder/entropy_decoder_kernel_2.cpp
+            src/dlib/entropy_encoder/entropy_encoder_kernel_1.cpp
+            src/dlib/entropy_encoder/entropy_encoder_kernel_2.cpp
+            src/dlib/tokenizer/tokenizer_kernel_1.cpp
+            src/dlib/unicode/unicode.cpp
+            src/dlib/dir_nav/dir_nav_kernel_1.cpp
+            src/dlib/dir_nav/dir_nav_kernel_2.cpp
+            src/dlib/misc_api/misc_api_kernel_1.cpp
+            src/dlib/misc_api/misc_api_kernel_2.cpp
+            src/dlib/threads/multithreaded_object_extension.cpp
+            src/dlib/threads/threaded_object_extension.cpp
+            src/dlib/threads/threads_kernel_1.cpp
+            src/dlib/threads/threads_kernel_2.cpp
+            src/dlib/threads/threads_kernel_shared.cpp
+            src/dlib/threads/thread_pool_extension.cpp
+            src/dlib/threads/async.cpp
+            src/dlib/timer/timer.cpp
+            src/dlib/stack_trace.cpp
+            src/dlib/gui_widgets/fonts.cpp
+            src/dlib/gui_widgets/widgets.cpp
+            src/dlib/gui_widgets/drawable.cpp
+            src/dlib/gui_widgets/canvas_drawing.cpp
+            src/dlib/gui_widgets/style.cpp
+            src/dlib/gui_widgets/base_widgets.cpp
+            src/dlib/gui_core/gui_core_kernel_1.cpp
+            src/dlib/gui_core/gui_core_kernel_2.cpp
+   )
+
 SET(GUI_SRC
   src/gui/board.cpp)
 
 if (NOT NO_GUI_SUPPORT)
-    set(GUI_SRC ${GUI_SRC}
-               src/gui/threads/threaded_object_extension.cpp
-               src/gui/threads/threads_kernel_1.cpp
-                src/gui/threads/threads_kernel_2.cpp
-                src/gui/threads/threads_kernel_shared.cpp
-                src/gui/gui_core_kernel_1.cpp
-                src/gui/gui_core_kernel_2.cpp
+    set(GUI_SRC ${GUI_SRC} ${dlib_source_files}
                 src/gui/board_ui.cpp
                 src/autogtpui.cpp
             )

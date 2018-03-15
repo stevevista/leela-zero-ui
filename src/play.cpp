@@ -31,10 +31,10 @@ constexpr int wait_time_secs = 40;
 void autogtpui();
 int gtp(const string& cmdline, const string& selfpath);
 int advisor(const string& cmdline, const string& selfpath);
-int playMatch(int rounds, const string& selfpath, const vector<string>& players);
+int playMatch(int rounds, const string& selfpath, const std::vector<string>& players);
 
 #ifndef NO_GUI_SUPPORT
-void update_board_by_seqs(go_window& ui, const vector<GtpState::move_t>& seqs) {
+void update_board_by_seqs(go_window& ui, const std::vector<GtpState::move_t>& seqs) {
     ui.reset(0, false);
     for (auto& m : seqs) {
         ui.update(m.is_black, m.pos, false);
@@ -61,7 +61,7 @@ int main(int argc, char **argv) {
 
     selfpath = selfpath.substr(0, pos); 
 
-    vector<string> players;
+    std::vector<string> players;
     int rounds = 1;
 
     for (int i=1; i<argc; i++) {
@@ -476,7 +476,7 @@ int playMatch(int index, GtpChoice& black, GtpChoice& white, function<void()> ui
         return -1;
 }
 
-int playMatch(int rounds, const string& selfpath, const vector<string>& players) {
+int playMatch(int rounds, const string& selfpath, const std::vector<string>& players) {
 
     GtpChoice black;
     GtpChoice white;
@@ -552,7 +552,7 @@ int playMatch(int rounds, const string& selfpath, const vector<string>& players)
         int sel = 0;
         int re;
         if (rounds > 1)
-            sel = rand()%2;
+            sel = ::rand()%2;
 
         if (sel == 0) {
             re = playMatch(i, black, white, uiReset, uiUpdate);

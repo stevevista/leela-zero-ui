@@ -1,7 +1,8 @@
 #pragma once 
 #include <array>
-#include "gui_core.h"
-#include "array2d.h"
+#include "../dlib/gui_core.h"
+#include "../dlib/gui_widgets.h"
+#include "../dlib/array2d.h"
 #include "board.h"
 
 
