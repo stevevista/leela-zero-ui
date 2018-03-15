@@ -9,6 +9,7 @@ public:
     function<void(const string& line)> onOutput;
     function<void(const string& line)> onStderr;
     function<void()> onReset;
+    function<void(bool,int)> onPlayChange;
 
     static constexpr int pass_move = GtpState::pass_move;
     static constexpr int resign_move = GtpState::resign_move;
@@ -20,6 +21,7 @@ public:
         gtp_blt.onInput = onInput;
         gtp_blt.onOutput = onOutput;
         gtp_blt.onReset = onReset;
+        gtp_blt.onPlayChange = onPlayChange;
         if (onStderr) gtp_blt.onStderr = onStderr;
         else
             gtp_blt.onStderr = [](const string& line) { std::cerr << line << std::flush;  };
@@ -31,6 +33,7 @@ public:
         gtp_proc.onInput = onInput;
         gtp_proc.onOutput = onOutput;
         gtp_proc.onReset = onReset;
+        gtp_proc.onPlayChange = onPlayChange;
         if (onStderr) gtp_proc.onStderr = onStderr;
         else
             gtp_proc.onStderr = [](const string& line) { std::cerr << line << std::flush;  };
@@ -72,10 +75,6 @@ public:
 
     int text_to_move(const string& vertex) const {
         return switch_ == 0 ? gtp_blt.text_to_move(vertex) : gtp_proc.text_to_move(vertex);
-    }
-
-    vector<GtpState::move_t> get_move_sequence() const {
-        return switch_ == 0 ? gtp_blt.get_move_sequence() : gtp_proc.get_move_sequence();
     }
 
     void stop_think() {

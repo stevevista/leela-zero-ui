@@ -16,7 +16,7 @@ class GameAdvisor : public TGTP {
 public:
 
     function<void()> onResetGame;
-    function<void(bool,int, const vector<genmove_stats>&)> onThinkMove;
+    function<void(bool,int, const std::vector<genmove_stats>&)> onThinkMove;
     function<void()> onThinkPass;
     function<void()> onThinkResign;
     function<void()> onThinkBegin;
@@ -32,7 +32,7 @@ public:
         return commit_pending_ ? !next_side_ : next_side_;
     }
 
-    void set_init_cmds(const vector<string>& cmds) {
+    void set_init_cmds(const std::vector<string>& cmds) {
         init_cmds = cmds;
     }
 
@@ -48,7 +48,7 @@ public:
     }
 
     void pop_events() {
-        vector<string> ev;
+        std::vector<string> ev;
         while (events_.try_pop(ev)) {
             if (ev[0] == "reset") {
                 if (onResetGame)
@@ -120,17 +120,17 @@ private:
     bool my_side_is_black_{true};
     bool hint_both_{false};
 
-    safe_queue<vector<string>> events_;
+    safe_queue<std::vector<string>> events_;
     std::atomic<bool> pending_reset_{false};
     std::atomic<bool> commit_pending_{false};
     bool commit_player_;
     int commit_pos_;
-    vector<string> init_cmds;
+    std::vector<string> init_cmds;
 
     safe_dqueue<GtpState::move_t> to_moves_;
 
     
-    vector<genmove_stats> stats_;
+    std::vector<genmove_stats> stats_;
 };
 
 

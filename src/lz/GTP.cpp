@@ -418,12 +418,12 @@ void GTP::run() {
             if (command.find("resign") != std::string::npos) {
                 bool is_black = game->get_to_move() == FastBoard::BLACK;
                 game->play_move(FastBoard::RESIGN);
-                history_moves_.push_back({is_black, -2});
+                add_move(is_black, -2);
                 gtp_print("");
             } else if (command.find("pass") != std::string::npos) {
                 bool is_black = game->get_to_move() == FastBoard::BLACK;
                 game->play_move(FastBoard::PASS);
-                history_moves_.push_back({is_black, -1});
+                add_move(is_black, -1);
                 gtp_print("");
             } else {
                 std::istringstream cmdstream(command);
@@ -441,7 +441,7 @@ void GTP::run() {
                         bool is_black = color[0] == 'b';
                         auto xy = game->board.get_xy(game->get_last_move());
                         auto pos = (xy.second)*board_size_ + xy.first;
-                        history_moves_.push_back({is_black, pos});
+                        add_move(is_black, pos);
                         gtp_print("");
                     }
                 } else {
@@ -479,7 +479,7 @@ void GTP::run() {
                         auto xy = game->board.get_xy(game->get_last_move());
                         pos = (xy.second)*board_size_ + xy.first;
                     }
-                    history_moves_.push_back({is_black, pos});
+                    add_move(is_black, pos);
 
                     std::string vertex = game->move_to_text(move);
                     gtp_print("%s", vertex.c_str());
@@ -493,8 +493,7 @@ void GTP::run() {
 
         } else if (command.find("undo") == 0) {
             if (game->undo_move()) {
-                if (history_moves_.size())
-                    history_moves_.erase(history_moves_.end()-1);
+                undo_move();
                 gtp_print("");
             } else {
                 gtp_fail("cannot undo");
@@ -581,7 +580,7 @@ void GTP::run() {
                 for (int j = 0; j < board_size_; j++) {
                     for (int i = 0; i < board_size_; i++) {
                         if (game->board.get_square(i,j) == FastBoard::BLACK) {
-                            handicaps_.push_back(j*board_size_ + i);
+                            add_handicap(j*board_size_ + i);
                         }
                     }
                 }
@@ -607,7 +606,7 @@ void GTP::run() {
                 for (int j = 0; j < board_size_; j++) {
                     for (int i = 0; i < board_size_; i++) {
                         if (game->board.get_square(i,j) == FastBoard::BLACK) {
-                            handicaps_.push_back(j*board_size_ + i);
+                            add_handicap(j*board_size_ + i);
                         }
                     }
                 }
@@ -643,7 +642,7 @@ void GTP::run() {
             for (int j = 0; j < board_size_; j++) {
                 for (int i = 0; i < board_size_; i++) {
                     if (game->board.get_square(i,j) == FastBoard::BLACK) {
-                        handicaps_.push_back(j*board_size_ + i);
+                        add_handicap(j*board_size_ + i);
                     }
                 }
             }

@@ -1,5 +1,6 @@
 #include "gtp_game.hpp"
 #include "gtp_choice.h"
+#include <cctype>
 
 template<class TGTP>
 GameAdvisor<TGTP>::GameAdvisor() {

@@ -17,16 +17,18 @@ public:
     function<void(const string& line)> onStderr;
     function<void()> onReset;
 
+    function<void(bool,int)> onPlayChange;
+
     static constexpr int pass_move = -1;
     static constexpr int resign_move = -2;
+    static constexpr int move_undo = -3;
+    static constexpr int move_reset = -4;
     static constexpr int invalid_move = -100;
 
     struct move_t {
         bool is_black;
         int pos;
     };
-
-    vector<move_t> get_move_sequence() const;
  
 public:
     int boardsize() const { return board_size_; }
@@ -87,6 +89,11 @@ protected:
     void clean_command_queue();
     void clean_board();
     void clean_up();
+
+protected:
+    void add_handicap(int pos);
+    void add_move(bool black, int pos);
+    void undo_move();
 
 protected:
 

@@ -14,53 +14,29 @@ class board_display : public drawable {
 public:
     board_display(drawable_window& w);
 
-private:
-    void draw(const canvas& c) const;
+	void set_size (
+        unsigned long width,
+        unsigned long height
+    );
 
-private:
-    array2d<rgb_alpha_pixel> img_wood;
-};
-
-class go_window : public drawable_window {
-public:
-    go_window(); 
-    void invalidate();
-
-    void reset(int bdsize=0, bool refresh=true);
-    bool update(bool black_move, int move, bool refresh=true);
+    void reset(int bdsize=0);
+    bool update(bool black_move, int move);
+    bool undo(bool black_move);
 
     void enable_play_mode(bool v) {play_mode = v;}
     void indicate(int pos);
 
     function<bool(bool,int)> onMoveClick;
-
+	
 private:
-    void paint (
-            const canvas& c
-        );
-
-    void on_window_resized();
-
-private:
-    void draw_grid(const canvas& c);
-    void draw_stones(const canvas& c);
-    void draw_stone(const canvas& c, long x, long y, int black, int mark);
-    void draw_mark(const canvas& c, long x, long y, rgb_alpha_pixel pixel);
-    void draw_shadow_stone(const canvas& c, long x, long y, bool black);
-    void load_res();
-    void scale_res();
-
-    std::array<long,2> loc(long x, long y) const {
-        long start = edge_size + radius;
-        return { start+x*radius*2, start+(board_.board_size()-1-y)*radius*2 };
-    }
-    
-
-    void on_mouse_move (
+    void draw(const canvas& c) const;
+	
+	void on_mouse_move (
             unsigned long ,
             long ,
             long 
         );
+
     void on_mouse_up (
             unsigned long ,
             unsigned long ,
@@ -68,6 +44,28 @@ private:
             long 
         );
 
+    void load_res();
+	
+	
+    void draw_grid(const canvas& c) const;
+	void draw_stones(const canvas& c) const;
+    void draw_stone(const canvas& c, long x, long y, int value, bool mark) const;
+	void draw_shadow_stone(const canvas& c, long x, long y, bool black) const;
+    void draw_mark(const canvas& c, long x, long y, rgb_alpha_pixel pixel) const;
+
+    
+
+private:
+    void rescale();
+    long stone_size() const { return radius_*2-1; }
+    point stone_pt(long x, long y) const;
+    rectangle stone_rect(long x, long y) const;
+    rectangle stone_rect(long pos) const;
+    int pt_to_stone_pos(long left ,long top) const;
+
+    long radius_{16};
+
+private:
     array2d<rgb_alpha_pixel> img_wood_src;
     array2d<rgb_alpha_pixel> img_black_src;
     array2d<rgb_alpha_pixel> img_white_src;
@@ -76,15 +74,36 @@ private:
     array2d<rgb_alpha_pixel> img_black;
     array2d<rgb_alpha_pixel> img_white;
 
-    long radius{16};
-    long edge_size = 10;
+    const long edge_size{10};
 
-    int last_xy{-1};
+    GoBoard board_;
+	
+	int last_xy{-1};
     int mark_xy{-1};
     int indicate_xy{-1};
     bool black_move{true};
     bool play_mode{true};
-    GoBoard board_;
+    int boardsize_;
+};
 
-    rectangle rect_;
+class go_window : public drawable_window {
+public:
+    go_window(); 
+
+    void reset(int bdsize=0);
+    bool update(bool black_move, int move);
+    bool undo(bool black_move);
+
+    void enable_play_mode(bool v) { board.enable_play_mode(v); }
+    void indicate(int pos) { board.indicate(pos); }
+
+    void setMoveClickHandler(function<bool(bool,int)> f) {
+        board.onMoveClick = f;
+    }
+
+private:
+    void on_window_resized();
+
+private:
+	board_display board;
 };

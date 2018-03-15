@@ -112,9 +112,34 @@ void GtpState::clean_command_queue() {
     }
 }
 
+void GtpState::add_handicap(int pos) {
+    handicaps_.push_back(pos);
+    if (onPlayChange)
+        onPlayChange(true, pos);
+}
+
+void GtpState::add_move(bool black, int pos) {
+    history_moves_.push_back({black, pos});
+    if (onPlayChange)
+        onPlayChange(black, pos);
+}
+
+void GtpState::undo_move() {
+    if (history_moves_.size()) {
+        auto black = history_moves_.back().is_black;
+        history_moves_.erase(history_moves_.end()-1);
+
+        if (onPlayChange)
+            onPlayChange(black, move_undo);
+    }
+}
+
 void GtpState::clean_board() {
     handicaps_.clear();
     history_moves_.clear();
+
+    if (onPlayChange)
+        onPlayChange(true, move_reset);
 }
 
 void GtpState::clean_up() {
@@ -123,16 +148,6 @@ void GtpState::clean_up() {
     board_size_ = 19;
     clean_board();
 }
-
-vector<GtpState::move_t> GtpState::get_move_sequence() const {
-    vector<move_t> out;
-    for (auto pos : handicaps_)
-        out.push_back({true, pos});
-
-    out.insert(out.end(), history_moves_.begin(), history_moves_.end());
-	return out;
-}   
-
 
 //////////////////////////////////////
 
@@ -287,7 +302,7 @@ void GtpProcess::onGtpResult(int, bool success, const string& cmd, const string&
 
             bool is_black = color[0] == 'b';
             auto pos = text_to_move(vertex);
-            history_moves_.push_back({is_black, pos});
+            add_move(is_black, pos);
         }
         else if (cmd.find("genmove") == 0 || cmd.find("kgs-genmove_cleanup") == 0) {
             std::istringstream cmdstream(cmd);
@@ -299,11 +314,10 @@ void GtpProcess::onGtpResult(int, bool success, const string& cmd, const string&
 
             bool is_black = color[0] == 'b';
             auto pos = text_to_move(rsp);
-            history_moves_.push_back({is_black, pos});
+            add_move(is_black, pos);
         }
         else if (cmd.find("undo") == 0) {
-            if (history_moves_.size())
-                history_moves_.erase(history_moves_.end()-1);
+            undo_move();
         }
         else if (cmd.find("handicap") != string::npos) {
 
@@ -318,7 +332,7 @@ void GtpProcess::onGtpResult(int, bool success, const string& cmd, const string&
                     auto pos = text_to_move(vertex);
                     if (pos == invalid_move)
                         break;
-                    handicaps_.push_back(pos);
+                    add_handicap(pos);
                 }
             } while (!cmdstream.fail());
         }

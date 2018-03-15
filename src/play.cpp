@@ -33,17 +33,6 @@ int gtp(const string& cmdline, const string& selfpath);
 int advisor(const string& cmdline, const string& selfpath);
 int playMatch(int rounds, const string& selfpath, const std::vector<string>& players);
 
-#ifndef NO_GUI_SUPPORT
-void update_board_by_seqs(go_window& ui, const std::vector<GtpState::move_t>& seqs) {
-    ui.reset(0, false);
-    for (auto& m : seqs) {
-        ui.update(m.is_black, m.pos, false);
-    }
-    ui.invalidate();
-}
-
-#endif
-
 
 int main(int argc, char **argv) {
 
@@ -161,7 +150,6 @@ int gtp(const string& cmdline, const string& selfpath) {
     function<bool()> check_gui_closed = [&]() { return false; };
     function<void()> close_window = [&]() {};
     function<void()> wait_until_closed = [&]() {};
-    function<void()> sync_ui_board = [&]() {};
     function<void()> toggle_ui = [&]() {}; 
 
 #ifndef NO_GUI_SUPPORT
@@ -171,9 +159,18 @@ int gtp(const string& cmdline, const string& selfpath) {
 
     if (board_ui) {
 
-        board_ui->onMoveClick = [&](bool black, int pos) {
+        board_ui->setMoveClickHandler([&](bool black, int pos) {
             agent.send_command("play " + string(black? "b " :"w ") + agent.move_to_text(pos));
             return false; // no commit
+        });
+
+        agent.onPlayChange = [&](bool black, int pos) {
+
+            if (pos == GtpState::move_undo) {
+                board_ui->undo(black);
+            }
+            else
+                board_ui->update(black, pos);
         };
 
         check_gui_closed = [&]() {
@@ -192,11 +189,6 @@ int gtp(const string& cmdline, const string& selfpath) {
             board_ui->wait_until_closed();
         };
 
-        sync_ui_board = [&]() {
-            
-            update_board_by_seqs(*board_ui, agent.get_move_sequence());
-        };
-        
         toggle_ui = [&]() {
             if (showing)
                 board_ui->hide();
@@ -210,7 +202,6 @@ int gtp(const string& cmdline, const string& selfpath) {
 
 
     agent.onOutput = [&](const string& line) {
-        sync_ui_board();
         cout << line;
     };
 
@@ -252,7 +243,6 @@ int advisor(const string& cmdline, const string& selfpath) {
     function<bool()> check_gui_closed = [&]() { return false; };
     function<void()> close_window = [&]() {};
     function<void()> wait_until_closed = [&]() {};
-    function<void()> sync_ui_board = [&]() {};
     function<void()> toggle_ui = [&]() {}; 
 
 #ifndef NO_GUI_SUPPORT
@@ -261,13 +251,25 @@ int advisor(const string& cmdline, const string& selfpath) {
 
     if (board_ui) {
 
-        board_ui->onMoveClick = [&](bool black, int pos) {
+        board_ui->setMoveClickHandler([&](bool black, int pos) {
             if (black == !opt_comupter_is_black) {
                 agent.place(black, pos);
                 return true;
             }
             else
                 return false; //no commit
+        });
+
+        agent.onPlayChange = [&](bool black, int pos) {
+
+            if (black != opt_comupter_is_black)
+                return;
+
+            if (pos == GtpState::move_undo) {
+                board_ui->undo(black);
+            }
+            else
+                board_ui->update(black, pos);
         };
 
         check_gui_closed = [&]() {
@@ -284,12 +286,6 @@ int advisor(const string& cmdline, const string& selfpath) {
 
         wait_until_closed = [&]() {
             board_ui->wait_until_closed();
-        };
-
-        sync_ui_board = [&]() {
-            auto seq = agent.get_move_sequence();
-            if (seq.size() && seq.back().is_black == opt_comupter_is_black)
-                update_board_by_seqs(*board_ui, agent.get_move_sequence());
         };
         
         toggle_ui = [&]() {
@@ -308,7 +304,6 @@ int advisor(const string& cmdline, const string& selfpath) {
     };
 
     agent.onGtpOut = [&](const string& line) {
-        sync_ui_board();
         cout << line;
     };
 

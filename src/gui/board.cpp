@@ -51,10 +51,8 @@ void GoBoard::reset(int bsize) {
         init_board_global(bsize);
     }
     boardsize = bsize;
-
-    for (int i = 0; i < boardsize*boardsize; i++) {
-        stones[i] = 0;
-    }
+    history.clear();
+    std::fill(stones.begin(), stones.end(), 0);
 }
 
 bool GoBoard::update_board(const bool black, const int i) {
@@ -64,6 +62,8 @@ bool GoBoard::update_board(const bool black, const int i) {
         std::cerr << stones[i] << std::endl;
         return false;
     }
+
+    history.push_back({black, i});
 
     const int color = black ? 1 : -1;
     
@@ -112,6 +112,29 @@ bool GoBoard::update_board(const bool black, const int i) {
     if (group_libs[group_ids[i]] == 0) {
         remove_string(group_ids[i]);
     }
+
+    return true;
+}
+
+bool GoBoard::undo(bool& prev_color, int& prev_pos) {
+    if (history.empty())
+        return false;
+
+    auto seq = history;
+    seq.erase(seq.end()-1);
+    if (seq.size()) {
+        prev_color = seq.back().first;
+        prev_pos = seq.back().second;
+    } else {
+        prev_color = false;
+        prev_pos = -1;
+    }
+
+    history.clear();
+    std::fill(stones.begin(), stones.end(), 0);
+
+    for (auto& m : seq) 
+        update_board(m.first, m.second);
 
     return true;
 }
