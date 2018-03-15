@@ -48,6 +48,29 @@ void load_image(const std::string& path, T& t_) {
 	stbi_image_free(result);
 }
 
+
+board_display::board_display(drawable_window& w)
+: drawable(w) {
+
+}
+
+void board_display::draw(const canvas& c) const {
+
+    rectangle area = rect.intersect(c);
+    if (area.is_empty())
+        return;
+
+    // draw background
+    for (long row = area.top(); row <= area.bottom(); ++row)
+    {
+        const long rc = row-c.top();
+        for (long col = area.left(); col <= area.right(); ++col)
+        {
+            assign_pixel(c[rc][col-c.left()], img_wood[row][col]);
+        }
+    }
+}
+
 go_window::go_window()
 {
     

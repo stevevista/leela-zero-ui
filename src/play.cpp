@@ -21,9 +21,9 @@ static constexpr int default_board_size = 19;
 
 
 static bool opt_comupter_is_black = true;
-static bool opt_hint = false;
+static bool opt_hint = true;
 static bool opt_uionly = false;
-
+static bool opt_noui = false;
 
 constexpr int wait_time_secs = 40;
 
@@ -96,11 +96,14 @@ int main(int argc, char **argv) {
         if (opt == "--human") {
             opt_comupter_is_black = false;
         }
-        else if (opt == "--hint") {
-            opt_hint = true;
+        else if (opt == "--play") {
+            opt_hint = false;
         }
         else if (opt == "--ui-only") {
             opt_uionly = true;
+        }
+        else if (opt == "--noui") {
+            opt_noui = true;
         }
         else if (opt == "--rounds") {
             rounds = stoi(argv[++i]);
@@ -136,55 +139,72 @@ int main(int argc, char **argv) {
     return 0;
 }
 
+#ifndef NO_GUI_SUPPORT
+static shared_ptr<go_window> create_ui() {
+    if (opt_noui)
+        return shared_ptr<go_window>();
+
+    try {
+        return make_shared<go_window>();
+    } catch(...) {
+        cerr << "Failed to initialize Window system, UI disabled" << endl;
+        return shared_ptr<go_window>();
+    }
+}
+
+#endif
+
 int gtp(const string& cmdline, const string& selfpath) {
 
     GtpChoice agent;
 
+    function<bool()> check_gui_closed = [&]() { return false; };
+    function<void()> close_window = [&]() {};
+    function<void()> wait_until_closed = [&]() {};
+    function<void()> sync_ui_board = [&]() {};
+    function<void()> toggle_ui = [&]() {}; 
+
 #ifndef NO_GUI_SUPPORT
+
     bool showing = true;
-    go_window my_window;
+    auto board_ui = create_ui();
 
-    my_window.onMoveClick = [&](bool black, int pos) {
-        agent.send_command("play " + string(black? "b " :"w ") + agent.move_to_text(pos));
-        return false; // no commit
-    };
+    if (board_ui) {
 
+        board_ui->onMoveClick = [&](bool black, int pos) {
+            agent.send_command("play " + string(black? "b " :"w ") + agent.move_to_text(pos));
+            return false; // no commit
+        };
 
-    auto check_gui_closed = [&]() {
-        if (my_window.is_closed()) {
-            agent.send_command("quit");
-            return true;
-        }
-        return false;
-    };
+        check_gui_closed = [&]() {
+            if (board_ui->is_closed()) {
+                agent.send_command("quit");
+                return true;
+            }
+            return false;
+        };
 
-    auto close_window = [&]() {
-        my_window.close_window();
-    };
+        close_window = [&]() {
+            board_ui->close_window();
+        };
 
-    auto wait_until_closed = [&]() {
-        my_window.wait_until_closed();
-    };
+        wait_until_closed = [&]() {
+            board_ui->wait_until_closed();
+        };
 
-    auto sync_ui_board = [&]() {
+        sync_ui_board = [&]() {
+            
+            update_board_by_seqs(*board_ui, agent.get_move_sequence());
+        };
         
-        update_board_by_seqs(my_window, agent.get_move_sequence());
-    };
-    
-    auto toggle_ui = [&]() {
-        if (showing)
-            my_window.hide();
-        else 
-            my_window.show();
-        showing = !showing;
-    }; 
-
-#else
-    auto check_gui_closed = [&]() { return false; };
-    auto close_window = [&]() {};
-    auto wait_until_closed = [&]() {};
-    auto sync_ui_board = [&]() {};
-    auto toggle_ui = [&]() {}; 
+        toggle_ui = [&]() {
+            if (showing)
+                board_ui->hide();
+            else 
+                board_ui->show();
+            showing = !showing;
+        }; 
+    }
 
 #endif  
 
@@ -229,56 +249,57 @@ int advisor(const string& cmdline, const string& selfpath) {
     GameAdvisor<GtpChoice> agent;
     //GameAdvisor agent("/home/steve/dev/app/leelaz -w /home/steve/dev/data/weights.txt -g");
     
+    function<bool()> check_gui_closed = [&]() { return false; };
+    function<void()> close_window = [&]() {};
+    function<void()> wait_until_closed = [&]() {};
+    function<void()> sync_ui_board = [&]() {};
+    function<void()> toggle_ui = [&]() {}; 
+
 #ifndef NO_GUI_SUPPORT
     bool showing = true;
-    go_window my_window;
+    auto board_ui = create_ui();
 
-    my_window.onMoveClick = [&](bool black, int pos) {
-        if (black == !opt_comupter_is_black) {
-            agent.place(black, pos);
-            return true;
-        }
-        else
-            return false; //no commit
-    };
+    if (board_ui) {
 
+        board_ui->onMoveClick = [&](bool black, int pos) {
+            if (black == !opt_comupter_is_black) {
+                agent.place(black, pos);
+                return true;
+            }
+            else
+                return false; //no commit
+        };
 
-    auto check_gui_closed = [&]() {
-        if (my_window.is_closed()) {
-            agent.send_command("quit");
-            return true;
-        }
-        return false;
-    };
+        check_gui_closed = [&]() {
+            if (board_ui->is_closed()) {
+                agent.send_command("quit");
+                return true;
+            }
+            return false;
+        };
 
-    auto close_window = [&]() {
-        my_window.close_window();
-    };
+        close_window = [&]() {
+            board_ui->close_window();
+        };
 
-    auto wait_until_closed = [&]() {
-        my_window.wait_until_closed();
-    };
+        wait_until_closed = [&]() {
+            board_ui->wait_until_closed();
+        };
 
-    auto sync_ui_board = [&]() {
-        auto seq = agent.get_move_sequence();
-        if (seq.size() && seq.back().is_black == opt_comupter_is_black)
-            update_board_by_seqs(my_window, agent.get_move_sequence());
-    };
-    
-    auto toggle_ui = [&]() {
-        if (showing)
-            my_window.hide();
-        else 
-            my_window.show();
-        showing = !showing;
-    }; 
-
-#else
-    auto check_gui_closed = [&]() { return false; };
-    auto close_window = [&]() {};
-    auto wait_until_closed = [&]() {};
-    auto sync_ui_board = [&]() {};
-    auto toggle_ui = [&]() {}; 
+        sync_ui_board = [&]() {
+            auto seq = agent.get_move_sequence();
+            if (seq.size() && seq.back().is_black == opt_comupter_is_black)
+                update_board_by_seqs(*board_ui, agent.get_move_sequence());
+        };
+        
+        toggle_ui = [&]() {
+            if (showing)
+                board_ui->hide();
+            else 
+                board_ui->show();
+            showing = !showing;
+        }; 
+    }
 
 #endif    
 
@@ -303,7 +324,8 @@ int advisor(const string& cmdline, const string& selfpath) {
         }
         else {
 #ifndef NO_GUI_SUPPORT
-            my_window.indicate(move);
+            if (board_ui)
+                board_ui->indicate(move);
 #endif    
             cout << "suggest move: " << agent.move_to_text(move) << endl;
             for (auto p : dist) {
@@ -524,26 +546,29 @@ int playMatch(int rounds, const string& selfpath, const std::vector<string>& pla
         }
     }
 
+    function<void()> uiReset = [&] {
+    };
+
+    function<void(bool, int)> uiUpdate = [&](bool, int) {
+    };
+
 #ifndef NO_GUI_SUPPORT
-    go_window my_window;
-    my_window.enable_play_mode(false);
-    my_window.reset(black.boardsize());
 
-    auto uiReset = [&] {
-        my_window.reset();
-    };
+    auto board_ui = create_ui();
 
-    auto uiUpdate = [&](bool black, int move) {
-        my_window.update(black, move);
-    };
+    if (board_ui) {
+        board_ui->enable_play_mode(false);
+        board_ui->reset(black.boardsize());
+        
+        uiReset = [&] {
+            board_ui->reset();
+        };
 
-#else
-    auto uiReset = [&] {
-    };
-
-    auto uiUpdate = [&](bool, int) {
-    };
-
+        uiUpdate = [&](bool black, int move) {
+            board_ui->update(black, move);
+        };
+    }
+    
 #endif
 
     int wins = 0;
@@ -568,7 +593,8 @@ int playMatch(int rounds, const string& selfpath, const std::vector<string>& pla
     cout << wins << "/" << rounds << endl;
     
 #ifndef NO_GUI_SUPPORT
-    my_window.wait_until_closed();
+    if (board_ui)
+        board_ui->wait_until_closed();
 #endif
 
     GtpState::wait_quit(black);

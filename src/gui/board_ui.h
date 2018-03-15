@@ -9,7 +9,19 @@
 using namespace std;
 using namespace dlib;
 
-class go_window : public base_window {
+
+class board_display : public drawable {
+public:
+    board_display(drawable_window& w);
+
+private:
+    void draw(const canvas& c) const;
+
+private:
+    array2d<rgb_alpha_pixel> img_wood;
+};
+
+class go_window : public drawable_window {
 public:
     go_window(); 
     void invalidate();

@@ -6333,8 +6333,6 @@ namespace dlib
             std::map<std::string,point>::const_iterator itr;
             for (itr = overlay_rects[i].parts.begin(); itr != overlay_rects[i].parts.end(); ++itr)
             {
-                if (itr->second == OBJECT_PART_NOT_PRESENT)
-                    continue;
 
                 const long part_size = (long)std::max(1.0,std::round(std::sqrt(orect.area())/part_width));
                 rectangle temp = centered_rect(get_rect_on_screen(centered_rect(itr->second,1,1)), part_size, part_size);
@@ -6554,9 +6552,6 @@ namespace dlib
                 std::map<std::string,point>::const_iterator itr;
                 for (itr = overlay_rects[i].parts.begin(); itr != overlay_rects[i].parts.end(); ++itr)
                 {
-                    if (itr->second == OBJECT_PART_NOT_PRESENT)
-                        continue;
-
                     const long part_size = (long)std::max(1.0,std::round(std::sqrt(orect.area())/part_width));
                     rectangle temp = centered_rect(get_rect_on_screen(centered_rect(itr->second,1,1)), part_size, part_size);
                     point c = center(temp);
@@ -6702,9 +6697,6 @@ namespace dlib
                 std::map<std::string,point>::const_iterator itr;
                 for (itr = overlay_rects[i].parts.begin(); itr != overlay_rects[i].parts.end(); ++itr)
                 {
-                    if (itr->second == OBJECT_PART_NOT_PRESENT)
-                        continue;
-
                     const long part_size = (long)std::max(1.0,std::round(std::sqrt(orect.area())/part_width));
                     rectangle temp = centered_rect(get_rect_on_screen(centered_rect(itr->second,1,1)), part_size, part_size);
                     point c = center(temp);
