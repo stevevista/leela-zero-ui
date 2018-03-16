@@ -11,7 +11,11 @@ constexpr int min_hwnd_pixes = 500;
 constexpr int THRESH_STONE_EXISTS_INTERVAL = 10;
 
 
-static double square_diff(COLORREF c1, COLORREF c2) {
+constexpr COLORREF clr_yicheng_wood = RGB(253, 223, 140);
+constexpr double last_mark_ratio = 0.7;
+constexpr double black_ratio = 0.85;
+
+static double pixel_likehood(COLORREF c1, COLORREF c2) {
 	auto r = std::abs(GetRValue(c1)-GetRValue(c2));
 	auto g = std::abs(GetGValue(c1)-GetGValue(c2));
 	auto b = std::abs(GetBValue(c1)-GetBValue(c2));
@@ -40,10 +44,7 @@ BoardSpy::BoardSpy()
 
 BoardSpy::~BoardSpy() {
 
-	send_command("quit");
-
-	if (hDisplayDC_)
-		ReleaseDC(NULL, hDisplayDC_);
+	send_command("quit");	
 }
 
 
@@ -149,7 +150,7 @@ int BoardSpy::detectStone(const BYTE* DIBS, int move, bool& isLastMove) const {
 
 	bool is_black = false, is_white = false;
 	auto bratio = compareBoardRegionAt(DIBS, move, blackStoneData_, stoneMaskData_);
-	if (bratio > 0.9) {
+	if (bratio > black_ratio) {
 		is_black = true;
 	} else {
 		auto wratio = compareBoardRegionAt(DIBS, move, whiteStoneData_, stoneMaskData_);
@@ -163,11 +164,11 @@ int BoardSpy::detectStone(const BYTE* DIBS, int move, bool& isLastMove) const {
 	if (is_black) {
 		sel = 1;
 		auto ratio = compareBoardRegionAt(DIBS, move, whiteImage_, lastMoveMaskData_);
-		isLastMove = (ratio > 0.9);
+		isLastMove = (ratio > last_mark_ratio);
 	} else if (is_white) {
 		sel = -1;
 		auto ratio = compareBoardRegionAt(DIBS, move, blackImage_, lastMoveMaskData_);
-		isLastMove = (ratio > 0.9);
+		isLastMove = (ratio > last_mark_ratio);
 	}
 
 	return sel;
@@ -183,6 +184,7 @@ double BoardSpy::compareBoardRegionAt(const BYTE* DIBS, int idx, const std::vect
 
 	
 	auto biWidthBytes = ((tplBoardSize_ * nDispalyBitsCount_ + 31) & ~31) / 8;
+	int bpp = nDispalyBitsCount_ >> 3;
 
 	int64_t totalLast = 0;
 	double total = 0;
@@ -202,7 +204,7 @@ double BoardSpy::compareBoardRegionAt(const BYTE* DIBS, int idx, const std::vect
 
 			counts++;
 			
-			auto idx = y*biWidthBytes + j*nBpp_;
+			auto idx = y*biWidthBytes + j*bpp;
 			auto r = DIBS[idx + 2];
 			auto g = DIBS[idx + 1];
 			auto b = DIBS[idx];
@@ -212,8 +214,7 @@ double BoardSpy::compareBoardRegionAt(const BYTE* DIBS, int idx, const std::vect
 			auto g2 = pstone[idx2 + 1];
 			auto b2 = pstone[idx2 + 2];
 			
-			//total += abs(r - r2) + abs(g - g2) + abs(b - b2);
-			total += square_diff(RGB(r, g, b), RGB(r2, g2, b2));
+			total += pixel_likehood(RGB(r, g, b), RGB(r2, g2, b2));
 		}
 	}
 
@@ -235,7 +236,7 @@ bool BoardSpy::scanBoard(HWND hWnd, int data[], int& lastMove) {
 		BitBlt(hBoardDC_, 0, 0, tplBoardSize_, tplBoardSize_, hdc, offsetX_, offsetY_, SRCCOPY);
 	}
 		
-	boardDIB_.getFromBitmap(hDisplayDC_, nDispalyBitsCount_, hBoardBitmap_, tplBoardSize_, tplBoardSize_);
+	boardDIB_.getFromBitmap(hdc, nDispalyBitsCount_, hBoardBitmap_, tplBoardSize_, tplBoardSize_);
 
 	lastMove = -1;
 	for (auto idx = 0; idx < 361; idx++) {
@@ -251,87 +252,162 @@ bool BoardSpy::scanBoard(HWND hWnd, int data[], int& lastMove) {
 }
 
 
-
-bool BoardSpy::locateStartPosition(Hdib& hdib, int& startx, int& starty) {
-
-	// skip title bar
-	if (hdib.width() < 50 || hdib.height() < 50)
+static bool yicheng_wood_corner(Hdib& hdib, int x, int y) {
+	if (pixel_likehood(hdib.rgb(x, y), clr_yicheng_wood) < 0.93)
 		return false;
 
-	for (int i=30; i<50; i++) {
-		for (int j=2; j<50; j++) {
-			if (square_diff(hdib.rgb(j,i), RGB(60,60,60)) > 0.98) {
-				startx = j;
-				starty = i;
-				return true;
-			}
+	for (int j = y; j < y + 7; j++) {
+		for (int i = x; i < x + 7; i++) {
+			if (pixel_likehood(hdib.rgb(i, j), clr_yicheng_wood) < 0.93)
+				return false;
 		}
 	}
-	return false;
+
+	return true;
 }
 
-bool BoardSpy::calcBoardPositions(HWND hWnd, int startx, int starty) {
+static bool yicheng_wood_size(Hdib& hdib, int i, int j, int& tx, int& ty, int& size) {
 
-	Hdib hdib;
-	hdib.getFromWnd(hWnd, nDispalyBitsCount_);
+	if (!yicheng_wood_corner(hdib, i, j))
+		return false;
 
-	if (startx < 0 || starty < 0) {
-		if (!locateStartPosition(hdib, startx, starty))
-			return false;
-	}
-
+	int h = 0, w = 0;
 	bool found = false;
-	int tx, ty;
-	for (int i=starty; i < 600; i++) {
-		for (int j=startx; j<600; j++) {
-			if (square_diff(hdib.rgb(j,i), RGB(60,60,60)) < 0.8) {
-				found = true;
-				tx = j;
-				ty = i;
-				break;
-			}
-		}
-		if (found)
+	for (int y = j; y < hdib.height(); y++) {
+		if (pixel_likehood(hdib.rgb(i, y), clr_yicheng_wood) < 0.9) {
+			found = true;
 			break;
+		}
+		h++;
 	}
 
 	if (!found)
 		return false;
 
-	int boardh = 0, boardw = 1;
-	for (int i=ty+1; i<hdib.height(); i++) {
-			if (square_diff(hdib.rgb(tx,i), RGB(60,60,60)) > 0.9) {
-				boardh = i - ty;
-				break;
-			}
+	found = false;
+	for (int x = i; x < hdib.width(); x++) {
+		if (pixel_likehood(hdib.rgb(x, j), clr_yicheng_wood) < 0.9) {
+			found = true;
+			break;
+		}
+		w++;
 	}
-	
-	for (int i=tx+1; i<hdib.width(); i++) {
-			if (square_diff(hdib.rgb(i,ty), RGB(60,60,60)) > 0.9) {
-				boardw = i - tx;
-				break;
-			}
-	}
-		
-	if (boardh != boardw)
+
+	if (!found)
 		return false;
 
-	// create only once
-	if (!hBoardBitmap_) {
-			
-		hBoardDC_ = CreateCompatibleDC(hDisplayDC_);
-		SetStretchBltMode(hBoardDC_, HALFTONE);
-			
-		hBoardBitmap_ = CreateCompatibleBitmap(hDisplayDC_, tplBoardSize_, tplBoardSize_);
-		hBoardDC_.selectBitmap(hBoardBitmap_);
-	}
-	
-	offsetX_ = tx + 1;
-	offsetY_ = ty + 1;
-	stoneSize_ = boardw / 19;
+	if (std::abs(h - w) > 1)
+		return false;
 
+	if (h < 500) return false;
+
+	tx = i + 1;
+	ty = j + 1;
+	size = max(h, w) - 1;
 	return true;
 }
+
+
+static bool fox_wood_corner(Hdib& hdib, int i, int j, int& tx, int& ty) {
+
+	// skip title bar
+	if (i < 2 || j < 30)
+		return false;
+
+	if (pixel_likehood(hdib.rgb(i, j), RGB(60, 60, 60)) < 0.98)
+		return false;
+
+	for (; j < min(600, hdib.height()); j++) {
+		for (; i<min(600, hdib.width()); i++) {
+			if (pixel_likehood(hdib.rgb(i, j), RGB(60, 60, 60)) < 0.8) {
+				tx = i;
+				ty = j;
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+static bool fox_wood_size(Hdib& hdib, int i, int j, int& tx, int& ty, int& size) {
+
+	if (!fox_wood_corner(hdib, i, j, tx, ty))
+		return false;
+
+	int h = 0, w = 0;
+	bool found = false;
+	for (int i = ty + 1; i<hdib.height(); i++) {
+		if (pixel_likehood(hdib.rgb(tx, i), RGB(60, 60, 60)) > 0.9) {
+			h = i - ty;
+			found = true;
+			break;
+		}
+	}
+
+	if (!found)
+		return false;
+
+	found = false;
+	for (int i = tx + 1; i<hdib.width(); i++) {
+		if (pixel_likehood(hdib.rgb(i, ty), RGB(60, 60, 60)) > 0.9) {
+			w = i - tx;
+			found = true;
+			break;
+		}
+	}
+
+	if (!found)
+		return false;
+
+	if (std::abs(h - w) > 1)
+		return false;
+
+	if (h < 500) return false;
+
+	tx = tx + 1;
+	ty = ty + 1;
+	size = max(h, w) - 1;
+	return true;
+}
+
+
+
+bool BoardSpy::locateStartPosition(HWND hwnd) {
+
+	Hdib hdib;
+	hdib.getFromWnd(hwnd, nDispalyBitsCount_);
+
+	// skip title bar
+	if (hdib.width() < 500 || hdib.height() < 500)
+		return false;
+
+	for (int j = 0; j< hdib.height()-500; j++) {
+		for (int i = 0; i< hdib.width()- 500; i++) {
+
+			int tx, ty, size;
+
+			if (yicheng_wood_size(hdib, i, j, tx, ty, size)) {
+
+				offsetX_ = tx;
+				offsetY_ = ty;
+				stoneSize_ = size / 19;
+				return true;
+			}
+
+			if (fox_wood_size(hdib, i, j, tx, ty, size)) {
+
+				offsetX_ = tx;
+				offsetY_ = ty;
+				stoneSize_ = size / 19;
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
 
 static 
 BOOL CALLBACK Level0EnumWindowsProc(HWND hWnd, LPARAM lParam) {
@@ -349,8 +425,8 @@ void BoardSpy::initResource() {
 		fatal(_T("resource bitmaps fail"));
 
 	// detect display device
-	hDisplayDC_ = CreateDC(_T("display"), NULL, NULL, NULL);
-	auto ibits = GetDeviceCaps(hDisplayDC_, BITSPIXEL)*GetDeviceCaps(hDisplayDC_, PLANES);
+	HDC hDisplayDC = CreateDC(_T("display"), NULL, NULL, NULL);
+	auto ibits = GetDeviceCaps(hDisplayDC, BITSPIXEL)*GetDeviceCaps(hDisplayDC, PLANES);
 
 	if (ibits <= 16) {
 		fatal(_T("not supported display device"));
@@ -361,7 +437,14 @@ void BoardSpy::initResource() {
 	else
 		nDispalyBitsCount_ = 32;
 
-	nBpp_ = nDispalyBitsCount_ >> 3;
+	hBoardDC_ = CreateCompatibleDC(hDisplayDC);
+	SetStretchBltMode(hBoardDC_, HALFTONE);
+
+	hBoardBitmap_ = CreateCompatibleBitmap(hDisplayDC, tplBoardSize_, tplBoardSize_);
+	hBoardDC_.selectBitmap(hBoardBitmap_);
+
+	ReleaseDC(NULL, hDisplayDC);
+
 
 	char program_path[1024];
 	HMODULE hModule = GetModuleHandle(NULL);
@@ -409,14 +492,8 @@ bool BoardSpy::bindWindow(HWND hWnd) {
 		return false;
 	}
 
-	Hdib hdib;
-	int startx, starty;
-	hdib.getFromWnd(hWnd, nDispalyBitsCount_, 50, 50);
-	if (!locateStartPosition(hdib, startx, starty))
-		return false;
-	
-	if (calcBoardPositions(hWnd, startx, starty)) {
-		
+	if (locateStartPosition(hWnd)) {
+
 		if (!initialBoard(hWnd))
 			return false;
 
@@ -439,8 +516,7 @@ bool Dialog::routineCheck() {
 		hTargetWnd = NULL;
 		return false;
 	} else {
-
-		if (!calcBoardPositions(hTargetWnd, -1, -1)) {
+		if (!locateStartPosition(hTargetWnd)) {
 			if (error_count_++ > 10) {
 				// board closed
 				hTargetWnd = NULL;

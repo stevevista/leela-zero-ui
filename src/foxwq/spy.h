@@ -30,8 +30,7 @@ protected:
 	int detectStone(const BYTE* DIBS, int move, bool& isLastMove) const;
 	double compareBoardRegionAt(const BYTE* DIBS, int move, const std::vector<BYTE>& stone, const std::vector<BYTE>& mask) const;
 
-	bool locateStartPosition(Hdib&, int& startx, int& starty);
-	bool calcBoardPositions(HWND hwnd, int startx, int starty);
+	bool locateStartPosition(HWND hwnd);
 
 protected:
 	bool initialBoard(HWND hwnd);
@@ -63,9 +62,7 @@ protected:
 
 protected:
 	// Window Resources
-	HDC hDisplayDC_;
 	int nDispalyBitsCount_;
-	int nBpp_;
 
 	Hdib boardDIB_;
 
