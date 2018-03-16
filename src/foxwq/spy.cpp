@@ -32,8 +32,6 @@ static LPCTSTR mask_files[] = {
 
 BoardSpy::BoardSpy() 
 : hTargetWnd(NULL)
-, routineClock_(0)
-, placeStoneClock_(0)
 , exit_(false)
 , placePos_(-1)
 {
@@ -49,85 +47,8 @@ BoardSpy::~BoardSpy() {
 }
 
 
-
-static 
-BOOL CALLBACK Level0EnumWindowsProc(HWND hWnd, LPARAM lParam) {
-
-	RECT rc;
-	GetWindowRect(hWnd, &rc);
-
-	if ((rc.right - rc.left < min_hwnd_pixes) || (rc.bottom - rc.top < min_hwnd_pixes)) {
-		// too small , cant be
-		return TRUE;
-	}
-
-	BoardSpy* spy = (BoardSpy*)lParam;
-	if (spy->bindWindow(hWnd))
-		return FALSE; // end search
-
-	return TRUE;
-}
-
 void BoardSpy::exit() {
 	exit_ = true;
-}
-
-void BoardSpy::initResource() {
-
-	if (!initBitmaps())
-		fatal(_T("resource bitmaps fail"));
-
-	// detect display device
-	hDisplayDC_ = CreateDC(_T("display"), NULL, NULL, NULL);
-	auto ibits = GetDeviceCaps(hDisplayDC_, BITSPIXEL)*GetDeviceCaps(hDisplayDC_, PLANES);
-
-	if (ibits <= 16) {
-		fatal(_T("not supported display device"));
-	}
-
-	if (ibits <= 24)
-		nDispalyBitsCount_ = 24;
-	else
-		nDispalyBitsCount_ = 32;
-
-	nBpp_ = nDispalyBitsCount_ >> 3;
-
-	char program_path[1024];
-	HMODULE hModule = GetModuleHandle(NULL);
-	GetModuleFileNameA(hModule, program_path, 1024);
-	int last = (int)strlen(program_path);
-	while (last--){
-		if (program_path[last] == '\\' || program_path[last] == '/') {
-			program_path[last] = '\0';
-			break;
-		}
-	}
-
-	init(program_path);
-
-	std::thread([&]() {
-
-		while (!exit_) {
-
-			if (hTargetWnd == NULL) {
-				
-				// Make a callback procedure for Windows to use to iterate
-				// through the Window list
-				FARPROC EnumProcInstance = MakeProcInstance((FARPROC)Level0EnumWindowsProc, g_hInst);
-				// Call the EnumWindows function to start the iteration
-				EnumWindows((WNDENUMPROC)EnumProcInstance, (LPARAM)this);
-				
-				// Free up the allocated memory handle
-				FreeProcInstance(EnumProcInstance);
-			}
-
-			Sleep(1000);
-		}
-
-	}).detach();
-
-	if (onGtpReady)
-		onGtpReady();
 }
 
 
@@ -412,9 +333,81 @@ bool BoardSpy::calcBoardPositions(HWND hWnd, int startx, int starty) {
 	return true;
 }
 
+static 
+BOOL CALLBACK Level0EnumWindowsProc(HWND hWnd, LPARAM lParam) {
+
+	BoardSpy* spy = (BoardSpy*)lParam;
+	if (spy->bindWindow(hWnd))
+		return FALSE; // end search
+
+	return TRUE;
+}
+
+void BoardSpy::initResource() {
+
+	if (!initBitmaps())
+		fatal(_T("resource bitmaps fail"));
+
+	// detect display device
+	hDisplayDC_ = CreateDC(_T("display"), NULL, NULL, NULL);
+	auto ibits = GetDeviceCaps(hDisplayDC_, BITSPIXEL)*GetDeviceCaps(hDisplayDC_, PLANES);
+
+	if (ibits <= 16) {
+		fatal(_T("not supported display device"));
+	}
+
+	if (ibits <= 24)
+		nDispalyBitsCount_ = 24;
+	else
+		nDispalyBitsCount_ = 32;
+
+	nBpp_ = nDispalyBitsCount_ >> 3;
+
+	char program_path[1024];
+	HMODULE hModule = GetModuleHandle(NULL);
+	GetModuleFileNameA(hModule, program_path, 1024);
+	int last = (int)strlen(program_path);
+	while (last--){
+		if (program_path[last] == '\\' || program_path[last] == '/') {
+			program_path[last] = '\0';
+			break;
+		}
+	}
+
+	init(program_path);
+
+	std::thread([&]() {
+
+		while (!exit_) {
+
+			if (hTargetWnd == NULL) {
+				
+				// Make a callback procedure for Windows to use to iterate
+				// through the Window list
+				FARPROC EnumProcInstance = MakeProcInstance((FARPROC)Level0EnumWindowsProc, g_hInst);
+				// Call the EnumWindows function to start the iteration
+				EnumWindows((WNDENUMPROC)EnumProcInstance, (LPARAM)this);
+				
+				// Free up the allocated memory handle
+				FreeProcInstance(EnumProcInstance);
+			}
+
+			Sleep(1000);
+		}
+
+	}).detach();
+}
 
 
 bool BoardSpy::bindWindow(HWND hWnd) {
+
+	RECT rc;
+	GetWindowRect(hWnd, &rc);
+
+	if ((rc.right - rc.left < min_hwnd_pixes) || (rc.bottom - rc.top < min_hwnd_pixes)) {
+		// too small , cant be
+		return false;
+	}
 
 	Hdib hdib;
 	int startx, starty;
@@ -428,14 +421,14 @@ bool BoardSpy::bindWindow(HWND hWnd) {
 			return false;
 
 		hTargetWnd = hWnd;
-		GetWindowRect(hWnd, &lastRect_);
+		lastRect_ = rc;
 		return true;
 	}
 
 	return false;
 }
 
-bool BoardSpy::routineCheck() {
+bool Dialog::routineCheck() {
 
 	routineClock_++;
 
@@ -465,9 +458,7 @@ bool BoardSpy::routineCheck() {
 			lastRect_.bottom != rc.bottom) {
 
 			lastRect_ = rc;
-
-			if (onSizeChanged)
-				onSizeChanged();
+			wndLabel_.update();
 		}	
 	}
 
@@ -500,7 +491,7 @@ bool BoardSpy::routineCheck() {
 		else {
 			board_age[idx]++;
 			if (board_age[idx] > thres) {
-				if (stone != 0 && board_last_[idx]== 0) {
+				if (stone != 0 && board_state_[idx]== 0) {
 					candicates.push_back(idx);
 				}
 			}
@@ -509,17 +500,14 @@ bool BoardSpy::routineCheck() {
 
 	if (candicates.size()) {
 		auto mLast = -1;
-		auto mTurn = -1;
 		auto mOther = -1;
 		for (auto c : candicates) {
 			if (c == lastMove) mLast = c;
-			else if (board_[c] == (next_move_is_black()?1:-1)) mTurn = c;
 			else mOther = c;
 		}
 
-		if (mTurn >= 0) sel = mTurn;
-		else if (mOther >= 0) sel = mOther;
-		else sel = mLast;
+		if (mLast >= 0) sel = mLast;
+		else sel = mOther;
 	}
 
 	if (sel >= 0) {
@@ -527,28 +515,51 @@ bool BoardSpy::routineCheck() {
 		placeStoneClock_ = 0;
 
 		auto player = board_[sel];
-		board_last_[sel] = player;
-
-		for (int idx = 0; idx < 361; idx++) {
-			if (board_age[idx] > thres && board_[idx]== 0) {
-				board_last_[idx] = 0;
-			}
-		}
-
-		std::copy(board_last_.begin(), board_last_.end(), board_.begin());
 		memset(board_age, 0, sizeof(board_age));
 
-		place(player == 1, sel);
+		wndLabel_.hide();
+		place_stone(player == 1, sel);
 	}
 
 	if (placeStoneClock_ > 0 && placeStoneClock_ < routineClock_) {
-		if (placeStone)
-			placeStone(placeX_, placeY_);
+		placeStone(placeX_, placeY_);
 	}
 	
 	return true;
 }
 
+bool BoardSpy::place_stone(bool black, int pos) {
+	
+	bool ret = board_state_.update_board(black, pos);
+	if (ret) {
+		last_move_ = pos;
+		place(black, pos);
+
+		for (auto idx=0; idx<361; idx++) {
+			board_[idx] = board_state_[idx];
+		}
+	}
+	return ret;
+}
+
+void BoardSpy::clean_stone() {
+	last_move_ = -4;
+	board_state_.reset();
+	std::fill(board_.begin(), board_.end(), 0);
+	memset(board_age, 0, sizeof(board_age));
+	reset();
+}
+
+
+static bool board_equal(const GoBoard& b, int data[]) {
+
+	for (auto idx=0; idx<361; idx++) {
+
+		if (data[idx] != b[idx]) 
+			return false;
+	}
+	return true;
+}
 
 bool BoardSpy::initialBoard(HWND hWnd) {
 
@@ -557,32 +568,72 @@ bool BoardSpy::initialBoard(HWND hWnd) {
 	if (!scanBoard(hWnd, curBoard, lastMove))
 		return false;
 
-	int more_stones = 0;
 	int stone_counts = 0;
+	std::vector<int> blacks;
+	std::vector<int> whites;
 	for (auto idx=0; idx<361; idx++) {
+
 		if (curBoard[idx] != 0) {
 			stone_counts++;
-			if (board_[idx] == 0)
-				more_stones++;
+
+			if (idx == lastMove) {}
+			else if (curBoard[idx] == 1) blacks.emplace_back(idx);
+			else if (curBoard[idx] == -1) whites.emplace_back(idx);
 		}
 	}
 
-	//char buf[1024];
-	//sprintf(buf, "%d", more_stones);
+	// on gaming
+	if (last_move_ > -4) {
 
-	//fatal(buf);
-	if (more_stones > 1)
-		return false;
+		if (board_equal(board_state_, curBoard)) {
+			return true; // resue game
+		}
 
-	if (stone_counts <= 1) {
-		std::fill(board_.begin(), board_.end(), 0);
-		std::fill(board_last_.begin(), board_last_.end(), 0);
-		memset(board_age, 0, sizeof(board_age));
-	
-		//reset(stone_counts == 1 ? false : true);
-		reset(false);
+		if (lastMove >= 0) {
+			auto b = board_state_;
+			b.update_board(curBoard[lastMove] == 1, lastMove);
+			if (board_equal(board_state_, curBoard)) {
+				place_stone(curBoard[lastMove] == 1, lastMove);
+				return true; // resue game
+			}
+		}
+
+		// abort this game
+		hint_off();
+		clean_stone();
 	}
 
+	if (lastMove >= 0) {
+		if (curBoard[lastMove] == 1) {
+			if (blacks.size() != whites.size()) {
+				// cannot restore it 
+				return false;
+			}
+		} else {
+			if (blacks.size() != whites.size()+1) {
+				// cannot restore it 
+				return false;
+			}
+		}
+
+		int i=0;
+		for (;i < whites.size(); i++) {
+			place_stone(true, blacks[i]);
+			place_stone(false, whites[i]);
+		}
+
+		if (i < blacks.size())
+			place_stone(true, blacks[i]);
+
+		place_stone(curBoard[lastMove] == 1, lastMove);
+	} else {
+		if (blacks.size() || whites.size()) {
+			// cannot restore it 
+			return false;
+		}
+	}
+
+	hint();
 	return true;
 }
 
@@ -608,7 +659,7 @@ POINT BoardSpy::coord2Screen(int x, int y) const {
 
 
 
-void BoardSpy::placeAt(int x, int y) {
+void Dialog::placeAt(int x, int y) {
 
 	if (!found()) {
 		placeStoneClock_ = 0;

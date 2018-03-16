@@ -9,14 +9,10 @@
 #include <thread>
 #include "../gtp_choice.h"
 #include "../gtp_game.hpp"
+#include "../board.h"
 
 class BoardSpy : public GameAdvisor<GtpChoice> {
 public:
-	std::function<void()> onGtpReady;
-	std::function<void()> onSizeChanged;
-	std::function<void(int x, int y)> placeStone;
-	
-
 	BoardSpy();
 	~BoardSpy();
 
@@ -26,11 +22,7 @@ public:
 	void initResource();
 	void exit();
 
-	void placeAt(int x, int y);
-
-	bool bindWindow(HWND hWnd);
-
-	bool routineCheck();
+	bool bindWindow(HWND hWnd);	
 	
 protected:
 	bool initBitmaps();
@@ -62,19 +54,14 @@ private:
 	std::vector<BYTE> blackImage_;
 	std::vector<BYTE> whiteImage_;
 
-	int routineClock_;
-	int placeStoneClock_;
-	int placeX_;
-	int placeY_;
 	bool exit_;
 	int placePos_;
 
-private:
+protected:
 	std::array<int, 361> board_;
-	std::array<int, 361> board_last_;
 	int board_age[361];
 
-private:
+protected:
 	// Window Resources
 	HDC hDisplayDC_;
 	int nDispalyBitsCount_;
@@ -88,6 +75,13 @@ private:
 	HWND hTargetWnd;
 	RECT lastRect_;
 	int error_count_;
+
+protected:
+	void clean_stone();
+	bool place_stone(bool black, int pos);
+
+	GoBoard board_state_;
+	int last_move_{-4};
 };
 
 
@@ -127,7 +121,7 @@ private:
 };
 
 
-class Dialog {
+class Dialog : public BoardSpy {
 
 public:
 	static Dialog* create(HINSTANCE hInst);
@@ -139,6 +133,11 @@ public:
 	~Dialog();
 	void show(int nCmdShow);
 	int messageLoop();
+
+protected:
+	bool routineCheck();
+	void placeStone(int x, int y);
+	void placeAt(int x, int y);
 
 protected:
 	void onInit();
@@ -153,15 +152,17 @@ protected:
 	INT_PTR CALLBACK Proc(UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 	HWND hWnd_;
-	BoardSpy spy;
-
-	BOOL bStartSearchWindow;
 
 	PredictWnd wndLabel_;
 
 	TCHAR szMoves_[300 * 50];
 	bool connected_;
 	bool auto_play_;
+
+	int placeStoneClock_{0};
+	int routineClock_{0};
+	int placeX_;
+	int placeY_;
 };
 
 

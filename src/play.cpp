@@ -13,7 +13,7 @@
 using namespace std;
 
 #ifndef NO_GUI_SUPPORT
-#include "gui/board_ui.h"
+#include "board_ui.h"
 #endif
 #include "tools.h"
 
@@ -308,9 +308,10 @@ int advisor(const string& cmdline, const string& selfpath) {
     };
 
     agent.set_init_cmds({"time_settings 1800 15 1"});
-    if (opt_hint)
-        agent.hint_both(true);
-
+    if (opt_hint || opt_comupter_is_black)
+        agent.hint_black();
+    if (opt_hint || !opt_comupter_is_black)
+        agent.hint_white();
 
     agent.onThinkMove = [&](bool black, int move, const std::vector<genmove_stats>& stats) {
 
@@ -356,7 +357,7 @@ int advisor(const string& cmdline, const string& selfpath) {
 	}).detach();
 
     // computer play as BLACK
-    agent.reset(opt_comupter_is_black);
+    agent.reset();
 
     while (true) {
         this_thread::sleep_for(chrono::microseconds(100));

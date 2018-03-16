@@ -1,10 +1,10 @@
 #pragma once 
 #include <array>
-#include "../dlib/gui_core.h"
-#include "../dlib/gui_widgets.h"
-#include "../dlib/array2d.h"
+#include "dlib/gui_core.h"
+#include "dlib/gui_widgets.h"
+#include "dlib/array2d.h"
 #include "board.h"
-#include "../gtp_game.hpp"
+#include "gtp_game.hpp"
 
 using namespace std;
 using namespace dlib;

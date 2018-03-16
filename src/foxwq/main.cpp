@@ -96,9 +96,8 @@ int WINAPI _tWinMain(HINSTANCE hInst, HINSTANCE h0, LPTSTR lpCmdLine, int nCmdSh
 
 Dialog::Dialog(HWND wnd)
 : hWnd_(wnd)
-, wndLabel_(spy)
+, wndLabel_(*this)
 {
-	bStartSearchWindow = FALSE;
 }
 
 Dialog::~Dialog()
@@ -141,12 +140,12 @@ INT_PTR CALLBACK Dialog::Proc(UINT uMsg, WPARAM wParam, LPARAM lParam) {
 		WORD wID = LOWORD(wParam);         // item, control, or accelerator identifier 
 
 		if (wID == IDC_BTN_PONDER) {
-			//spy.stop_think();
+			//stop_think();
 			return TRUE;
 		}
 
 		if (wID == IDC_BTN_HINT) {
-			spy.hint();
+			hint();
 			return TRUE;
 		}
 
@@ -166,7 +165,8 @@ void Dialog::onInit() {
 	auto_play_ = false;
 	connected_ = false;
 
-	spy.initResource();
+	initResource();
+	updateStatus();
 
 	SetTimer(hWnd_,             // handle to main window 
 		IDT_TIMER1,            // timer identifier 
@@ -176,7 +176,7 @@ void Dialog::onInit() {
 	wndLabel_.create(hWnd_);
 
 	szMoves_[0] = 0;
-	spy.onGtpIn = [&](const std::string& line) {
+	onGtpIn = [&](const std::string& line) {
 		//wndLabel_.hide();
 		//strcat(szMoves_, line.c_str());
 		//strcat(szMoves_, _T("\r\n"));
@@ -189,7 +189,7 @@ void Dialog::onInit() {
 		SendMessageA(hEdit, EM_REPLACESEL, 0, (LPARAM)(str.c_str())); //append text to current pos and 
 	};
 	
-	spy.onGtpOut = [&](const std::string& line) {
+	onGtpOut = [&](const std::string& line) {
 		//wndLabel_.hide();
 		//strcat(szMoves_, line.c_str());
 		//strcat(szMoves_, _T("\r\n"));
@@ -202,51 +202,17 @@ void Dialog::onInit() {
 		SendMessageA(hEdit, EM_REPLACESEL, 0, (LPARAM)(str.c_str())); //append text to current pos and 
 	};
 
-	spy.onThinkBegin = [&]() {
+	onThinkBegin = [&]() {
 		EnableWindow(GetDlgItem(hWnd_, IDC_BTN_HINT), FALSE);
 		EnableWindow(GetDlgItem(hWnd_, IDC_BTN_PONDER), TRUE);
 	};
 
-	spy.onThinkEnd = [&]() {
+	onThinkEnd = [&]() {
 		EnableWindow(GetDlgItem(hWnd_, IDC_BTN_HINT), TRUE);
 		EnableWindow(GetDlgItem(hWnd_, IDC_BTN_PONDER), FALSE);
 	};
 
-	spy.placeStone = [&](int x, int y) {
-
-		bool show = false;
-		if (wndLabel_.isVisible()) {
-			wndLabel_.hide();
-			show = true;
-			Sleep(10);
-		}
-
-		spy.placeAt(x, y);
-
-		if (show)
-			wndLabel_.show();
-	};
-
-	spy.onMoveCommit = [&](bool black_player, int move) {
-
-		wndLabel_.hide();
-/*
-		TCHAR wbuf[50];
-		wsprintf(wbuf, _T("%d: %s (%d,%d)"), steps, player == 1 ? _T("B") : _T("W"), x, y);
-		if (steps == 1)
-			lstrcpy(szMoves_, _T("[                                         ]\r\n"));
-
-		lstrcat(szMoves_, wbuf);
-		lstrcat(szMoves_, _T("\r\n"));
-		memcpy(&szMoves_[1], wbuf, lstrlen(wbuf)*sizeof(TCHAR));
-		SetDlgItemText(hWnd_, IDC_EDIT_STATUS, szMoves_);*/
-	};
-
-	spy.onSizeChanged = [&]() {
-		wndLabel_.update();
-	};
-
-	spy.onThinkMove = [&](bool black_player, int move, const std::vector<genmove_stats>& dist) {
+	onThinkMove = [&](bool black_player, int move, const std::vector<genmove_stats>& dist) {
 
 		bool autoplay = auto_play_;
 
@@ -255,22 +221,33 @@ void Dialog::onInit() {
 		wndLabel_.setPos(label);
 		if (autoplay) {
 
-			spy.placeStone(move%19, move/19);
+			placeStone(move%19, move/19);
 		}
 		wndLabel_.show();
 	};
 
-	spy.onThinkPass = [&]() {
+	onThinkPass = [&]() {
 		MessageBox(NULL, _T("PASS"), TEXT("spy"), MB_ICONINFORMATION);
 	};
 
-	spy.onThinkResign = [&]() {
+	onThinkResign = [&]() {
 		MessageBox(NULL, _T("RESIGN"), TEXT("spy"), MB_ICONINFORMATION);
 	};
+}
 
-	spy.onGtpReady = [&]() {
-		updateStatus();
-	};
+void Dialog::placeStone(int x, int y) {
+
+	bool show = false;
+	if (wndLabel_.isVisible()) {
+		wndLabel_.hide();
+		show = true;
+		Sleep(10);
+	}
+
+	placeAt(x, y);
+
+	if (show)
+		wndLabel_.show();
 }
 
 void Dialog::updateStatus() {
@@ -288,7 +265,7 @@ void Dialog::updateStatus() {
 
 void Dialog::onDetectInterval() {
 
-	bool r = spy.routineCheck();
+	bool r = routineCheck();
 	
 	if (r != connected_) {
 		connected_ = r;
@@ -301,7 +278,7 @@ void Dialog::onClose() {
 	if (MessageBox(hWnd_, TEXT("Exit?"), TEXT("Exit"),
 		MB_ICONQUESTION | MB_YESNO) == IDYES)
 	{
-		spy.exit();
+		exit();
 		DestroyWindow(hWnd_);
 	}
 }

@@ -88,6 +88,7 @@ SET(SOURCES
   src/gtp_choice.cpp
   src/gtp_game.cpp
   src/tools.cpp
+  src/board.cpp
   ${TINY_PROC_SRC})
 
 
@@ -193,13 +194,11 @@ set(dlib_source_files
    )
 
 SET(GUI_SRC
-  src/gui/board.cpp)
+  src/board_ui.cpp
+  src/autogtpui.cpp)
 
 if (NOT NO_GUI_SUPPORT)
-    set(GUI_SRC ${GUI_SRC} ${dlib_source_files}
-                src/gui/board_ui.cpp
-                src/autogtpui.cpp
-            )
+    set(GUI_SRC ${GUI_SRC} ${dlib_source_files})
 endif()
 
 ADD_EXECUTABLE(leelazui $<TARGET_OBJECTS:objs> ${GUI_SRC} src/play.cpp)

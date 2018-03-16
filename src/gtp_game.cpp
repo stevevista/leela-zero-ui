@@ -20,6 +20,7 @@ GameAdvisor<TGTP>::GameAdvisor() {
         events_.push({"reset"});
         to_moves_.clear();
         next_side_ = true;
+        resetted_ = true;
         execute_next_move();
     };
 
@@ -31,8 +32,7 @@ GameAdvisor<TGTP>::GameAdvisor() {
 
 
 template<class TGTP>
-void GameAdvisor<TGTP>::reset(bool my_side) {
-    my_side_is_black_ = my_side;
+void GameAdvisor<TGTP>::reset() {
     pending_reset_ = true;
     to_moves_.clear();
     TGTP::send_command("clear_board");
@@ -43,18 +43,55 @@ void GameAdvisor<TGTP>::reset(bool my_side) {
 
 
 template<class TGTP>
+void GameAdvisor<TGTP>::hint_off() {
+    hint_black_ = false;
+    hint_white_ = false;
+}
+
+template<class TGTP>
+void GameAdvisor<TGTP>::hint_both() {
+    hint_black();
+    hint_white();
+}
+
+template<class TGTP>
 void GameAdvisor<TGTP>::hint() {
-    my_side_is_black_ = next_move_is_black();
-    if (to_moves_.empty()) {
-        execute_next_move();
+    hint_off();
+    if (next_move_is_black()) {
+        hint_black();
+    } else {
+        hint_white();
     }
+}
+
+template<class TGTP>
+void GameAdvisor<TGTP>::hint_black() {
+    hint_black_ = true;
+    if (resetted_ && to_moves_.empty())
+        execute_next_move();
 }
 
 
 template<class TGTP>
-void GameAdvisor<TGTP>::play_move(bool black_move, const int pos) {
+void GameAdvisor<TGTP>::hint_white() {
+    hint_white_ = true;
+    if (resetted_ && to_moves_.empty())
+        execute_next_move();
+}
 
-    events_.push({"update_board", black_move ? "b" : "w", to_string(pos)});
+template<class TGTP>
+void GameAdvisor<TGTP>::think() {
+
+    if (hint_black_ == next_side_ || hint_white_ == !next_side_) {
+        if (!commit_pending_)
+            do_think(next_side_);
+    }
+}
+
+
+
+template<class TGTP>
+void GameAdvisor<TGTP>::play_move(bool black_move, const int pos) {
 
     auto is_empty = to_moves_.empty();
     to_moves_.push({black_move, pos});
@@ -135,11 +172,12 @@ void GameAdvisor<TGTP>::do_think(bool black_move) {
 
     TGTP::send_command(black_move ? "genmove b" : "genmove w", [black_move, this](bool success, const string& rsp) {
 
-            if (!success) {
-                next_side_ = !next_side_;
+        if (!success) {
+            next_side_ = !next_side_;
+            if (!to_moves_.empty())
                 execute_next_move();
-                return;
-            }
+            return;
+        }
 
             int move = TGTP::text_to_move(rsp);
             if (move == TGTP::invalid_move)

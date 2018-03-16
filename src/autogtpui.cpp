@@ -1,4 +1,4 @@
-#include "gui/board_ui.h"
+#include "board_ui.h"
 #include <iostream>
 #include <thread>
 #include <cctype>

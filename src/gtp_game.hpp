@@ -23,7 +23,6 @@ public:
     function<void()> onThinkEnd;
     function<void(const string&)> onGtpIn;
     function<void(const string&)> onGtpOut;
-    function<void(bool,int)> onMoveCommit;
 
 
     GameAdvisor();
@@ -36,12 +35,13 @@ public:
         init_cmds = cmds;
     }
 
-    void hint_both(bool v) {
-        hint_both_ = v;
-    }
-
-    void reset(bool my_side);
+    void hint_both();
+    void hint_black();
+    void hint_white();
     void hint();
+    void hint_off();
+    void reset();
+    
 
     void place(bool black_move, int pos) {
         play_move(black_move, pos);
@@ -84,12 +84,6 @@ public:
                 if (onGtpOut)
                     onGtpOut(ev[1]);
             }
-            else if (ev[0] == "update_board") {
-                bool black_move = ev[1] == "b";
-                int move = stoi(ev[2]);
-                if (onMoveCommit)
-                    onMoveCommit(black_move, move);
-            }
         }
     }
 
@@ -98,13 +92,7 @@ protected:
     void play_move(bool black_move, const int pos);
     void execute_next_move();
     void do_think(bool black_move);
-
-    void think() {
-        if (hint_both_ || next_side_ == my_side_is_black_) {
-            if (!commit_pending_)
-                do_think(next_side_);
-        }
-    }
+    void think();
 
 private:
     void processStderr(const string& output);
@@ -117,8 +105,9 @@ private:
 
 private:
     bool next_side_{true};
-    bool my_side_is_black_{true};
-    bool hint_both_{false};
+    bool hint_black_{false};
+    bool hint_white_{false};
+    bool resetted_{false};
 
     safe_queue<std::vector<string>> events_;
     std::atomic<bool> pending_reset_{false};

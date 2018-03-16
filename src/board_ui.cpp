@@ -1,13 +1,13 @@
 #include "board_ui.h"
 #include <fstream>
-#include "../dlib/pixel.h"
-#include "../dlib/geometry.h"
-#include "../dlib/matrix.h"
-#include "../dlib/image_transforms.h"
+#include "dlib/pixel.h"
+#include "dlib/geometry.h"
+#include "dlib/matrix.h"
+#include "dlib/image_transforms.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_INLINE
-#include "../stb/stb_image.h"
+#include "stb/stb_image.h"
 
 #ifdef _WIN32
 #include <Windows.h>
