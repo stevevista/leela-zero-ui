@@ -10,8 +10,8 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 
 project(gtpfox)
 
-option(NO_GUI_SUPPORT "Use GUI to monitor playing" OFF)
-
+option(NO_GUI "NOT Use GUI to monitor playing" OFF)
+option(NO_GPU "NOT Use GPU" OFF)
 
 FIND_PACKAGE(Threads REQUIRED)
 
@@ -61,9 +61,7 @@ endif()
 
 
 SET(COMMON_LIBS ${CMAKE_THREAD_LIBS_INIT} ${BLAS_LIBRARIES})
-if (OpenCL_LIBRARIES)
-	SET(COMMON_LIBS ${COMMON_LIBS} ${OpenCL_LIBRARIES})
-endif()
+
 
 if(MSVC)
   add_definitions(/D_CRT_SECURE_NO_WARNINGS)
@@ -82,6 +80,18 @@ else()
       src/tiny-process-library/process_unix.cpp)
 endif()
 
+
+if(NO_GUI)
+  add_definitions(-DNO_GUI_SUPPORT)
+endif()
+
+if(NO_GPU)
+  add_definitions(-DFEATURE_USE_CPU_ONLY)
+else()
+    if (OpenCL_LIBRARIES)
+	    SET(COMMON_LIBS ${COMMON_LIBS} ${OpenCL_LIBRARIES})
+    endif()
+endif()
 
 SET(SOURCES 
   src/gtp_agent.cpp
@@ -130,21 +140,17 @@ TARGET_LINK_LIBRARIES(gtpfox ${COMMON_LIBS})
 endif()
 
 
-if(NO_GUI_SUPPORT)
-  add_definitions(-DNO_GUI_SUPPORT)
-endif()
-
 set (needed_libraries)
 
 # we want to link to the right stuff depending on our platform.  
 if (WIN32 AND NOT CYGWIN)
-    if (NO_GUI_SUPPORT)
+    if (NO_GUI)
         set (needed_libraries ws2_32 winmm)
     else()
         set (needed_libraries ws2_32 winmm comctl32 gdi32 imm32)
     endif()
 else()
-    if (NOT NO_GUI_SUPPORT)
+    if (NOT NO_GUI)
         include(FindX11)
         if (X11_FOUND)
             include_directories(${X11_INCLUDE_DIR})
@@ -155,8 +161,7 @@ else()
             message(" *** Make sure libx11-dev is installed if you want GUI support.            ***")
             message(" *** On Ubuntu run: sudo apt-get install libx11-dev                        ***")
             message(" *****************************************************************************")
-            set(NO_GUI_SUPPORT ON CACHE STRING ${DLIB_NO_GUI_SUPPORT_STR} FORCE )
-            enable_preprocessor_switch(NO_GUI_SUPPORT)
+            add_definitions(-DNO_GUI_SUPPORT)
         endif()
     endif()
 endif()
@@ -197,7 +202,7 @@ SET(GUI_SRC
   src/board_ui.cpp
   src/autogtpui.cpp)
 
-if (NOT NO_GUI_SUPPORT)
+if (NOT NO_GUI)
     set(GUI_SRC ${GUI_SRC} ${dlib_source_files})
 endif()
 
