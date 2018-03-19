@@ -181,7 +181,7 @@ void parseLeelaZeroArgs(int argc, char **argv, vector<string>& players) {
         if (opt == "--gtp" || opt == "-g") {
             cfg_gtp_mode = true;
         }
-        else if (opt == "--player") {
+        else if (opt == "--exe" || opt == "-x") {
             string player = argv[++i];
             if (player.find(" ") == string::npos && player.find(".txt") != string::npos) {
 #ifdef _WIN32

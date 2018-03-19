@@ -64,20 +64,20 @@ int main(int argc, char **argv) {
             cout << "--ui-only" << endl;
             cout << endl;
 
-            cout << "--player <gtp engine command line or weights file>" << endl;
-            cout << "  1) multiple --player arguments for match" << endl;
+            cout << "-x <gtp engine command line or weights file>" << endl;
+            cout << "  1) multiple -x arguments for match" << endl;
             cout << "  2) if not specified, use built-in LeelaZero engine" << endl;
             cout << endl;
             cout << "--weights <weights file> | -w <weights file>" << endl;
             cout << "  if not specified, auto search in local directory" << endl;
             cout << endl;
             cout << "example:" << endl;
-            cout << "./leelazui --player ./AQ -w ./best_v.txt, AQ(B) vs built-in engine with weights best_v1" << endl;
-            cout << "./leelazui -w ./best_v.txt --player ./AQ, AQ(W) vs built-in engine with weights best_v1" << endl;
-            cout << "./leelazui -w ./best_v.txt --player ./best_v.txt ... -p 1600 --noponder, bulit-in leelaz vs leelaz" << endl;
-            cout << "./leelazui, play with LeelaZero engine (auto search best weights)" << endl;
-            cout << "./leelazui --player ./AQ, play with AQ engine" << endl;
-            cout << "./autogtp | ./leelazui --ui-only, use as autogtp ui" << endl;
+            cout << "./lzbot -x ./AQ -w ./best_v.txt, AQ(B) vs built-in engine with weights best_v1" << endl;
+            cout << "./lzbot -w ./best_v.txt -x ./AQ, AQ(W) vs built-in engine with weights best_v1" << endl;
+            cout << "./lzbot -w ./best_v.txt -x ./best_v.txt ... -p 1600 --noponder, bulit-in leelaz vs leelaz" << endl;
+            cout << "./lzbot, play with LeelaZero engine (auto search best weights)" << endl;
+            cout << "./lzbot -x ./AQ, play with AQ engine" << endl;
+            cout << "./autogtp | ./lzbot --ui-only, use as autogtp ui" << endl;
             return 0;
 
         }
@@ -464,7 +464,7 @@ int playMatch(int index, GtpChoice& black, GtpChoice& white, function<void()> ui
     std::cout << "Result: " << result << std::endl;
 
     string sgf_string;
-    float komi = 7.5;
+    //float komi = 7.5;
     int size = black.boardsize();
     time_t now;
     time(&now);
@@ -480,7 +480,7 @@ int playMatch(int index, GtpChoice& black, GtpChoice& white, function<void()> ui
     sgf_string.append(sgf_moves);
     sgf_string.append(")\n");
 
-    std::ofstream ofs("selfplay.sgf");
+    std::ofstream ofs("selfplay-"+ to_string(index) +".sgf");
     ofs << sgf_string;
     ofs.close();
 
@@ -591,5 +591,7 @@ int playMatch(int rounds, const string& selfpath, const std::vector<string>& pla
 
     GtpState::wait_quit(black);
     GtpState::wait_quit(white);
+
+    return 0;
 }
 
