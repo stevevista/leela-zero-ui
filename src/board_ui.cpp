@@ -211,7 +211,7 @@ void board_display::draw_stones(const canvas& c) const {
 
         if (indicate_stats.size()) {
             
-            int cindex = 0;
+            size_t cindex = 0;
             for (auto& st : indicate_stats) {
                 if (st.move < 0)
                     continue;
@@ -298,7 +298,7 @@ void board_display::
     auto_mutex M(m);
     rectangle old(rect);
 
-	auto length = std::min(width, height);
+	long length = std::min(width, height);
     auto new_radius = (length - edge_size*2) / (boardsize_*2);
 
     if (new_radius != radius_ && new_radius > 10) {
@@ -395,11 +395,14 @@ void board_display::indicate(int pos, const std::vector<genmove_stats>& stats) {
 
 go_window::go_window()
 :board(*this)
+,status(*this)
 {
     auto_mutex M(wm);
 
+    set_background_color(191,191,191);
     board.set_pos(0, 0);
-    set_size(board.width(), board.height());
+    set_size(board.width(), board.height()+30);
+    status.set_text("eval: ");
 
     show();
 }
@@ -411,7 +414,9 @@ void go_window::on_window_resized() {
 	
     unsigned long width, height;
     get_size(width,height);
-	board.set_size(width,height);        
+	board.set_size(width,height-30);   
+    auto rect = board.get_rect();  
+    status.set_pos(0, rect.height());
 }
 
 bool go_window::update(bool black_to_move, int move) {
@@ -429,4 +434,8 @@ void go_window::reset(int bdsize) {
     board.reset(bdsize);
 }
 
+void go_window::indicate(int pos, const std::vector<genmove_stats>& stats, const float nn_eval) { 
+    board.indicate(pos, stats); 
+    status.set_text("eval: " + to_string(nn_eval));
+}
 //  ----------------------------------------------------------------------------

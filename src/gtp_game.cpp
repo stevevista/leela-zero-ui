@@ -231,6 +231,8 @@ void GameAdvisor<TGTP>::processStderr(const string& output) {
 template<class TGTP>
 void GameAdvisor<TGTP>::processStderrOneLine(const string& line) {
 
+    if (parseLeelaNNEval(line))
+        return;
     parseLeelaDumpStatsLine(line);
 }
 
@@ -308,8 +310,18 @@ bool GameAdvisor<TGTP>::parseLeelaDumpStatsLine(const string& line) {
 }
 
 
+template<class TGTP>
+bool GameAdvisor<TGTP>::parseLeelaNNEval(const string& line) {
+    // NN eval=0.898502
+    if (line.find("NN eval=") == 0) {
+        nn_eval_ = stof(line.substr(8));
+        return true;
+    }
+    return false;
+}
+
 
 
 template class GameAdvisor<GtpProcess>;
-template class GameAdvisor<GTP>;
+template class GameAdvisor<GtpLZ>;
 template class GameAdvisor<GtpChoice>;

@@ -16,7 +16,7 @@ class GameAdvisor : public TGTP {
 public:
 
     function<void()> onResetGame;
-    function<void(bool,int, const std::vector<genmove_stats>&)> onThinkMove;
+    function<void(bool,int, const std::vector<genmove_stats>&, const float)> onThinkMove;
     function<void()> onThinkPass;
     function<void()> onThinkResign;
     function<void()> onThinkBegin;
@@ -58,7 +58,7 @@ public:
                 bool black_move = ev[1] == "b";
                 int move = stoi(ev[2]);
                 if (onThinkMove)
-                    onThinkMove(black_move, move, stats_);
+                    onThinkMove(black_move, move, stats_, nn_eval_);
             }
             else if (ev[0] == "pass") {
                 if (onThinkPass)
@@ -98,6 +98,7 @@ private:
     void processStderr(const string& output);
     void processStderrOneLine(const string& line);
     bool parseLeelaDumpStatsLine(const string& line);
+    bool parseLeelaNNEval(const string& line);
 
     string buffer_;
     bool eat_stderr{false};
@@ -120,6 +121,7 @@ private:
 
     
     std::vector<genmove_stats> stats_;
+    float nn_eval_;
 };
 
 

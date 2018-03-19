@@ -1,6 +1,6 @@
 #pragma once
 
-#include "lz/GTP.h"
+#include "gtp_lz.h"
 
 
 class GtpChoice {
@@ -83,6 +83,6 @@ public:
 
 private:
     int switch_{0};
-    GTP gtp_blt;
+    GtpLZ gtp_blt;
     GtpProcess gtp_proc;
 };

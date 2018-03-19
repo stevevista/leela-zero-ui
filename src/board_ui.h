@@ -103,7 +103,7 @@ public:
 
     void enable_play_mode(bool v) { board.enable_play_mode(v); }
     void indicate(int pos) { board.indicate(pos); }
-    void indicate(int pos, const std::vector<genmove_stats>& stats) { board.indicate(pos, stats); }
+    void indicate(int pos, const std::vector<genmove_stats>& stats, const float nn_eval);
 
     void setMoveClickHandler(function<bool(bool,int)> f) {
         board.onMoveClick = f;
@@ -114,4 +114,5 @@ private:
 
 private:
 	board_display board;
+    label status;
 };

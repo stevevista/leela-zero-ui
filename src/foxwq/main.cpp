@@ -212,7 +212,7 @@ void Dialog::onInit() {
 		EnableWindow(GetDlgItem(hWnd_, IDC_BTN_PONDER), FALSE);
 	};
 
-	onThinkMove = [&](bool black_player, int move, const std::vector<genmove_stats>& dist) {
+	onThinkMove = [&](bool black_player, int move, const std::vector<genmove_stats>&, const float) {
 
 		bool autoplay = auto_play_;
 

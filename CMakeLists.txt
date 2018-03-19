@@ -48,6 +48,16 @@ SET(OpenCL_LIBRARIES ${CMAKE_SOURCE_DIR}/packages/opencl-nug.0.777.12/build/nati
 endif()
 
 
+if (NOT MSVC)
+  SET(GCC_COMPILE_FLAGS "-Wall -Wextra -ffast-math -flto -march=native")
+  SET(GCC_DISABLED_WARNING_COMPILE_FLAGS "-Wno-ignored-attributes -Wno-maybe-uninitialized")
+  SET(GCC_FLAGS "${GCC_COMPILE_FLAGS} ${GCC_DISABLED_WARNING_COMPILE_FLAGS}")
+  SET(CMAKE_CXX_FLAGS_DEBUG "${GCC_FLAGS} -g -Og")
+  SET(CMAKE_CXX_FLAGS_RELEASE "${GCC_FLAGS} -g -O3 -DNDEBUG")
+  SET(CMAKE_EXE_LINKER_FLAGS "-flto -g")
+endif()
+
+
 INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
 if (OpenCL_INCLUDE_DIRS)
 INCLUDE_DIRECTORIES(${OpenCL_INCLUDE_DIRS})
@@ -95,6 +105,7 @@ endif()
 
 SET(SOURCES 
   src/gtp_agent.cpp
+  src/gtp_lz.cpp
   src/gtp_choice.cpp
   src/gtp_game.cpp
   src/tools.cpp
@@ -124,6 +135,8 @@ SET(LZ_SRC src/lz/Network.cpp
             src/lz/Tuner.cpp
             src/lz/OpenCLScheduler.cpp
             src/lz/OpenCL.cpp
+            src/lz/SGFParser.cpp
+            src/lz/SGFTree.cpp
             src/lz/fix/ladder.cpp)
 
 
@@ -206,6 +219,6 @@ if (NOT NO_GUI)
     set(GUI_SRC ${GUI_SRC} ${dlib_source_files})
 endif()
 
-ADD_EXECUTABLE(leelazui $<TARGET_OBJECTS:objs> ${GUI_SRC} src/play.cpp)
-TARGET_LINK_LIBRARIES(leelazui ${needed_libraries} ${COMMON_LIBS})
+ADD_EXECUTABLE(lzbot $<TARGET_OBJECTS:objs> ${GUI_SRC} src/play.cpp)
+TARGET_LINK_LIBRARIES(lzbot ${needed_libraries} ${COMMON_LIBS})
 

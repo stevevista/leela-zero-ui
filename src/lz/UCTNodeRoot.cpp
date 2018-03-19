@@ -68,6 +68,65 @@ void UCTNode::kill_superkos(const KoState& state) {
     );
 }
 
+void UCTNode::dirichlet_noise(float epsilon, float alpha) {
+    auto child_cnt = m_children.size();
+
+    auto dirichlet_vector = std::vector<float>{};
+    std::gamma_distribution<float> gamma(alpha, 1.0f);
+    for (size_t i = 0; i < child_cnt; i++) {
+        dirichlet_vector.emplace_back(gamma(Random::get_Rng()));
+    }
+
+    auto sample_sum = std::accumulate(begin(dirichlet_vector),
+                                      end(dirichlet_vector), 0.0f);
+
+    // If the noise vector sums to 0 or a denormal, then don't try to
+    // normalize.
+    if (sample_sum < std::numeric_limits<float>::min()) {
+        return;
+    }
+
+    for (auto& v: dirichlet_vector) {
+        v /= sample_sum;
+    }
+
+    child_cnt = 0;
+    for (auto& child : m_children) {
+        auto score = child->get_score();
+        auto eta_a = dirichlet_vector[child_cnt++];
+        score = score * (1 - epsilon) + epsilon * eta_a;
+        child->set_score(score);
+    }
+}
+
+void UCTNode::randomize_first_proportionally() {
+    auto accum = std::uint64_t{0};
+    auto accum_vector = std::vector<decltype(accum)>{};
+    for (const auto& child : m_children) {
+        accum += child->get_visits();
+        accum_vector.emplace_back(accum);
+    }
+
+    auto pick = Random::get_Rng().randuint64(accum);
+    auto index = size_t{0};
+    for (size_t i = 0; i < accum_vector.size(); i++) {
+        if (pick < accum_vector[i]) {
+            index = i;
+            break;
+        }
+    }
+
+    // Take the early out
+    if (index == 0) {
+        return;
+    }
+
+    assert(m_children.size() >= index);
+
+    // Now swap the child at index with the first child
+    std::iter_swap(begin(m_children), begin(m_children) + index);
+}
+
 UCTNode* UCTNode::get_nopass_child(FastState& state) const {
     for (const auto& child : m_children) {
         /* If we prevent the engine from passing, we must bail out when
