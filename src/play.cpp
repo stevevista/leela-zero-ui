@@ -21,7 +21,7 @@ static constexpr int default_board_size = 19;
 
 
 static bool opt_comupter_is_black = true;
-static bool opt_hint = true;
+static bool opt_play_mode = false;
 static bool opt_uionly = false;
 static bool opt_noui = false;
 
@@ -86,7 +86,7 @@ int main(int argc, char **argv) {
             opt_comupter_is_black = false;
         }
         else if (opt == "--play") {
-            opt_hint = false;
+            opt_play_mode = true;
         }
         else if (opt == "--ui-only") {
             opt_uionly = true;
@@ -252,7 +252,7 @@ int advisor(const string& cmdline, const string& selfpath) {
     if (board_ui) {
 
         board_ui->setMoveClickHandler([&](bool black, int pos) {
-            if (black == !opt_comupter_is_black) {
+            if (!opt_play_mode || black == !opt_comupter_is_black) {
                 agent.place(black, pos);
                 return true;
             }
@@ -262,7 +262,7 @@ int advisor(const string& cmdline, const string& selfpath) {
 
         agent.onPlayChange = [&](bool black, int pos) {
 
-            if (black != opt_comupter_is_black)
+            if (!opt_play_mode || black != opt_comupter_is_black)
                 return;
 
             if (pos == GtpState::move_undo) {
@@ -308,14 +308,14 @@ int advisor(const string& cmdline, const string& selfpath) {
     };
 
     agent.set_init_cmds({"time_settings 1800 15 1"});
-    if (opt_hint || opt_comupter_is_black)
+    if (!opt_play_mode || opt_comupter_is_black)
         agent.hint_black();
-    if (opt_hint || !opt_comupter_is_black)
+    if (!opt_play_mode || !opt_comupter_is_black)
         agent.hint_white();
 
     agent.onThinkMove = [&](bool black, int move, const std::vector<genmove_stats>& stats, const float nn_eval) {
 
-        if (black == opt_comupter_is_black) {
+        if (opt_play_mode && black == opt_comupter_is_black) {
             agent.place(black, move);
         }
         else {

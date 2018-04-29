@@ -63,7 +63,13 @@ extern bool cfg_benchmark;
 */
 class GTP {
 public:
+    static bool execute(GameState & game, std::string xinput);
     static void setup_default_parameters();
+private:
+    static constexpr int GTP_VERSION = 2;
+
+    static std::string get_life_list(const GameState & game, bool live);
+    static const std::string s_commands[];
 };
 
 

@@ -335,17 +335,17 @@ void board_display::on_mouse_up (
     if (btn != base_window::LEFT || !play_mode)
         return;
 
-    int new_mark = pt_to_stone_pos(l, t);
-    if (new_mark != -1 && board_[new_mark] == 0) {
+    int move = pt_to_stone_pos(l, t);
+    if (move != -1 && board_[move] == 0) {
 
         indicate_xy = -1;
         if (onMoveClick) {
-            if (onMoveClick(black_move, new_mark)) {
-                update(black_move, new_mark);
+            if (onMoveClick(black_move, move)) {
+                update(black_move, move);
             }
         }
         else {
-            update(black_move, new_mark);
+            update(black_move, move);
         }
     }
 }

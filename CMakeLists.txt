@@ -76,7 +76,7 @@ SET(COMMON_LIBS ${CMAKE_THREAD_LIBS_INIT} ${BLAS_LIBRARIES})
 if(MSVC)
   add_definitions(/D_CRT_SECURE_NO_WARNINGS)
 else()
-  add_compile_options(-std=c++14 -O4 -Wall -Wextra)
+  add_compile_options(-std=c++14 -O4 -Wall -Wextra -DNDEBUG)
 endif()
 
 SET(TINY_PROC_SRC 
@@ -120,6 +120,7 @@ SET(LZ_SRC src/lz/Network.cpp
             src/lz/GTP.cpp
             src/lz/UCTSearch.cpp
             src/lz/UCTNode.cpp
+            src/lz/UCTNodePointer.cpp
             src/lz/UCTNodeRoot.cpp
             src/lz/SMP.cpp
             src/lz/Utils.cpp

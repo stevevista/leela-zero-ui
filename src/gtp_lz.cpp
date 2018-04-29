@@ -46,6 +46,10 @@ void Utils::myprintf(const char *fmt, ...) {
     }
 }
 
+void UCTSearch::stop_think() {
+    m_run = false;
+}
+
 
 std::string GtpLZ::get_life_list(const GameState & game, bool live) {
     std::vector<std::string> stringlist;
@@ -313,7 +317,7 @@ void GtpLZ::run() {
  
         } else if (command.find("list_commands") == 0) {
             std::string outtmp(s_commands[0]);
-            for (int i = 1; i < s_commands.size(); i++) {
+            for (auto i = size_t{1}; i < s_commands.size(); i++) {
                 outtmp = outtmp + "\n" + s_commands[i];
             }
             gtp_print(outtmp.c_str());
