@@ -1,6 +1,6 @@
 /*
     This file is part of Leela Zero.
-    Copyright (C) 2017 Gian-Carlo Pascutto
+    Copyright (C) 2017-2018 Gian-Carlo Pascutto and contributors
 
     Leela Zero is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -41,6 +41,7 @@
 #ifdef USE_OPENBLAS
 #include <cblas.h>
 #endif
+#include "zlib.h"
 #ifdef USE_OPENCL
 #include "OpenCLScheduler.h"
 #include "UCTNode.h"
@@ -87,9 +88,10 @@ static std::array<float, 256> ip1_val_b;
 
 static std::array<float, 256> ip2_val_w;
 static std::array<float, 1> ip2_val_b;
+static bool value_head_not_stm;
 
-// Rotation helper
-static std::array<std::array<int, BOARD_SQUARES>, 8> rotate_nn_idx_table;
+// Symmetry helper
+static std::array<std::array<int, BOARD_SQUARES>, 8> symmetry_nn_idx_table;
 
 void Network::benchmark(const GameState* const state, const int iterations) {
     const auto cpus = cfg_num_threads;
@@ -102,7 +104,7 @@ void Network::benchmark(const GameState* const state, const int iterations) {
         tg.add_task([&runcount, iterations, state]() {
             while (runcount < iterations) {
                 runcount++;
-                get_scored_moves(state, Ensemble::RANDOM_ROTATION, -1, true);
+                get_scored_moves(state, Ensemble::RANDOM_SYMMETRY, -1, true);
             }
         });
     }
@@ -115,7 +117,7 @@ void Network::benchmark(const GameState* const state, const int iterations) {
 }
 
 void Network::process_bn_var(std::vector<float>& weights, const float epsilon) {
-    for(auto&& w : weights) {
+    for (auto&& w : weights) {
         w = 1.0f / std::sqrt(w + epsilon);
     }
 }
@@ -170,10 +172,10 @@ std::vector<float> Network::zeropad_U(const std::vector<float>& U,
     // Fill with zeroes
     auto Upad = std::vector<float>(WINOGRAD_TILE * outputs_pad * channels_pad);
 
-    for(auto o = 0; o < outputs; o++) {
-        for(auto c = 0; c < channels; c++) {
-            for(auto xi = 0; xi < WINOGRAD_ALPHA; xi++){
-                for(auto nu = 0; nu < WINOGRAD_ALPHA; nu++) {
+    for (auto o = 0; o < outputs; o++) {
+        for (auto c = 0; c < channels; c++) {
+            for (auto xi = 0; xi < WINOGRAD_ALPHA; xi++){
+                for (auto nu = 0; nu < WINOGRAD_ALPHA; nu++) {
                     Upad[xi * (WINOGRAD_ALPHA * outputs_pad * channels_pad)
                          + nu * (outputs_pad * channels_pad)
                          + c * outputs_pad +
@@ -190,11 +192,15 @@ std::vector<float> Network::zeropad_U(const std::vector<float>& U,
     return Upad;
 }
 
-std::pair<int, int> Network::load_v1_network(std::ifstream& wtfile) {
+std::pair<int, int> Network::load_v1_network(std::istream& wtfile) {
     // Count size of the network
     myprintf("Detecting residual layers...");
-    // We are version 1
-    myprintf("v%d...", 1);
+    // We are version 1 or 2
+    if (value_head_not_stm) {
+        myprintf("v%d...", 2);
+    } else {
+        myprintf("v%d...", 1);
+    }
     // First line was the version number
     auto linecount = size_t{1};
     auto channels = 0;
@@ -288,42 +294,65 @@ std::pair<int, int> Network::load_v1_network(std::ifstream& wtfile) {
         }
         linecount++;
     }
-    wtfile.close();
 
-    return {channels, residual_blocks};
+    return {channels, static_cast<int>(residual_blocks)};
 }
 
 std::pair<int, int> Network::load_network_file(const std::string& filename) {
-    auto wtfile = std::ifstream{filename};
-    if (wtfile.fail()) {
+    // gzopen supports both gz and non-gz files, will decompress
+    // or just read directly as needed.
+    auto gzhandle = gzopen(filename.c_str(), "rb");
+    if (gzhandle == nullptr) {
         myprintf("Could not open weights file: %s\n", filename.c_str());
         return {0, 0};
     }
+    // Stream the gz file in to a memory buffer stream.
+    auto buffer = std::stringstream{};
+    constexpr auto chunkBufferSize = 64 * 1024;
+    std::vector<char> chunkBuffer(chunkBufferSize);
+    while (true) {
+        auto bytesRead = gzread(gzhandle, chunkBuffer.data(), chunkBufferSize);
+        if (bytesRead == 0) break;
+        if (bytesRead < 0) {
+            myprintf("Failed to decompress or read: %s\n", filename.c_str());
+            gzclose(gzhandle);
+            return {0, 0};
+        }
+        assert(bytesRead <= chunkBufferSize);
+        buffer.write(chunkBuffer.data(), bytesRead);
+    }
+    gzclose(gzhandle);
 
     // Read format version
     auto line = std::string{};
     auto format_version = -1;
-    if (std::getline(wtfile, line)) {
+    if (std::getline(buffer, line)) {
         auto iss = std::stringstream{line};
         // First line is the file format version id
         iss >> format_version;
-        if (iss.fail() || format_version != FORMAT_VERSION) {
+        if (iss.fail() || (format_version != 1 && format_version != 2)) {
             myprintf("Weights file is the wrong version.\n");
             return {0, 0};
         } else {
-            assert(format_version == FORMAT_VERSION);
-            return load_v1_network(wtfile);
+            // Version 2 networks are identical to v1, except
+            // that they return the score for black instead of
+            // the player to move. This is used by ELF Open Go.
+            if (format_version == 2) {
+                value_head_not_stm = true;
+            } else {
+                value_head_not_stm = false;
+            }
+            return load_v1_network(buffer);
         }
     }
-
     return {0, 0};
 }
 
 void Network::initialize() {
-    // Prepare rotation table
-    for(auto s = 0; s < 8; s++) {
-        for(auto v = 0; v < BOARD_SQUARES; v++) {
-            rotate_nn_idx_table[s][v] = rotate_nn_idx(v, s);
+    // Prepare symmetry table
+    for (auto s = 0; s < 8; s++) {
+        for (auto v = 0; v < BOARD_SQUARES; v++) {
+            symmetry_nn_idx_table[s][v] = get_nn_idx_symmetry(v, s);
         }
     }
 
@@ -375,7 +404,7 @@ void Network::initialize() {
     myprintf("Initializing OpenCL.\n");
     opencl.initialize(channels);
 
-    for(const auto & opencl_net : opencl.get_networks()) {
+    for (const auto & opencl_net : opencl.get_networks()) {
         const auto tuners = opencl_net->getOpenCL().get_sgemm_tuners();
 
         const auto mwg = tuners[0];
@@ -626,7 +655,7 @@ void Network::winograd_convolve3(const int outputs,
 
 template<unsigned int filter_size>
 void convolve(const size_t outputs,
-              const std::vector<net_t>& input,
+              const std::vector<float>& input,
               const std::vector<float>& weights,
               const std::vector<float>& biases,
               std::vector<float>& output) {
@@ -843,7 +872,7 @@ std::vector<float> softmax(const std::vector<float>& input,
 
 Network::Netresult Network::get_scored_moves(
     const GameState* const state, const Ensemble ensemble,
-    const int rotation, const bool skip_cache) {
+    const int symmetry, const bool skip_cache) {
     Netresult result;
     if (state->board.get_boardsize() != BOARD_SIZE) {
         return result;
@@ -860,13 +889,20 @@ Network::Netresult Network::get_scored_moves(
     gather_features(state, planes);
 
     if (ensemble == DIRECT) {
-        assert(rotation >= 0 && rotation <= 7);
-        result = get_scored_moves_internal(state, planes, rotation);
+        assert(symmetry >= 0 && symmetry <= 7);
+        result = get_scored_moves_internal(planes, symmetry);
     } else {
-        assert(ensemble == RANDOM_ROTATION);
-        assert(rotation == -1);
-        const auto rand_rot = Random::get_Rng().randfix<8>();
-        result = get_scored_moves_internal(state, planes, rand_rot);
+        assert(ensemble == RANDOM_SYMMETRY);
+        assert(symmetry == -1);
+        const auto rand_sym = Random::get_Rng().randfix<8>();
+        result = get_scored_moves_internal(planes, rand_sym);
+    }
+
+    // v2 format (ELF Open Go) returns black value, not stm
+    if (value_head_not_stm) {
+        if (state->board.get_to_move() == FastBoard::WHITE) {
+            result.winrate = 1.0f - result.winrate;
+        }
     }
 
     // Insert result into cache.
@@ -876,26 +912,36 @@ Network::Netresult Network::get_scored_moves(
 }
 
 Network::Netresult Network::get_scored_moves_internal(
-    const GameState* const state, const NNPlanes & planes, const int rotation) {
-    assert(rotation >= 0 && rotation <= 7);
+    const NNPlanes& planes, const int symmetry) {
+    assert(symmetry >= 0 && symmetry <= 7);
     assert(INPUT_CHANNELS == planes.size());
     constexpr auto width = BOARD_SIZE;
     constexpr auto height = BOARD_SIZE;
     std::vector<net_t> input_data;
     std::vector<float> policy_data(OUTPUTS_POLICY * width * height);
     std::vector<float> value_data(OUTPUTS_VALUE * width * height);
+#ifdef USE_HALF
+    std::vector<net_t> policy_data_n(OUTPUTS_POLICY * width * height);
+    std::vector<net_t> value_data_n(OUTPUTS_VALUE * width * height);
+#endif
     // Data layout is input_data[(c * height + h) * width + w]
     input_data.reserve(INPUT_CHANNELS * width * height);
     for (auto c = 0; c < INPUT_CHANNELS; ++c) {
         for (auto h = 0; h < height; ++h) {
             for (auto w = 0; w < width; ++w) {
-                const auto rot_idx = rotate_nn_idx_table[rotation][h * width + w];
-                input_data.emplace_back(net_t(planes[c][rot_idx]));
+                const auto sym_idx = symmetry_nn_idx_table[symmetry][h * width + w];
+                input_data.emplace_back(net_t(planes[c][sym_idx]));
             }
         }
     }
 #ifdef USE_OPENCL
+#ifdef USE_HALF
+    opencl.forward(input_data, policy_data_n, value_data_n);
+    std::copy(begin(policy_data_n), end(policy_data_n), begin(policy_data));
+    std::copy(begin(value_data_n), end(value_data_n), begin(value_data));
+#else
     opencl.forward(input_data, policy_data, value_data);
+#endif
 #elif defined(USE_BLAS) && !defined(USE_OPENCL)
     forward_cpu(input_data, policy_data, value_data);
 #endif
@@ -930,45 +976,31 @@ Network::Netresult Network::get_scored_moves_internal(
     // Sigmoid
     const auto winrate_sig = (1.0f + std::tanh(winrate_out[0])) / 2.0f;
 
-    std::vector<scored_node> result;
-    for (auto idx = size_t{0}; idx < outputs.size(); idx++) {
-        if (idx < BOARD_SQUARES) {
-            const auto rot_idx = rotate_nn_idx_table[rotation][idx];
-            const auto x = rot_idx % BOARD_SIZE;
-            const auto y = rot_idx / BOARD_SIZE;
-            const auto rot_vtx = state->board.get_vertex(x, y);
-            if (state->board.get_square(rot_vtx) == FastBoard::EMPTY) {
-                result.emplace_back(outputs[idx], rot_vtx);
-            }
-        } else {
-            result.emplace_back(outputs[idx], FastBoard::PASS);
-        }
+    Netresult result;
+
+    for (auto idx = size_t{0}; idx < BOARD_SQUARES; idx++) {
+        const auto sym_idx = symmetry_nn_idx_table[symmetry][idx];
+        result.policy[sym_idx] = outputs[idx];
     }
 
-    return std::make_pair(result, winrate_sig);
+    result.policy_pass = outputs[BOARD_SQUARES];
+    result.winrate = winrate_sig;
+
+    return result;
 }
 
 void Network::show_heatmap(const FastState* const state,
                            const Netresult& result,
                            const bool topmoves) {
-    auto moves = result.first;
     std::vector<std::string> display_map;
     std::string line;
 
     for (unsigned int y = 0; y < BOARD_SIZE; y++) {
         for (unsigned int x = 0; x < BOARD_SIZE; x++) {
-            const auto vtx = state->board.get_vertex(x, y);
-
-            const auto item = std::find_if(moves.cbegin(), moves.cend(),
-                [&vtx](scored_node const& test_item) {
-                return test_item.second == vtx;
-            });
-
             auto score = 0;
-            // Non-empty squares won't be scored
-            if (item != moves.cend()) {
-                score = int(item->first * 1000);
-                assert(vtx == item->second);
+            const auto vertex = state->board.get_vertex(x, y);
+            if (state->board.get_square(vertex) == FastBoard::EMPTY) {
+                score = result.policy[y * BOARD_SIZE + x] * 1000;
             }
 
             line += boost::str(boost::format("%3d ") % score);
@@ -981,12 +1013,22 @@ void Network::show_heatmap(const FastState* const state,
     for (int i = display_map.size() - 1; i >= 0; --i) {
         myprintf("%s\n", display_map[i].c_str());
     }
-    assert(result.first.back().second == FastBoard::PASS);
-    const auto pass_score = int(result.first.back().first * 1000);
+    const auto pass_score = int(result.policy_pass * 1000);
     myprintf("pass: %d\n", pass_score);
-    myprintf("winrate: %f\n", result.second);
+    myprintf("winrate: %f\n", result.winrate);
 
     if (topmoves) {
+        std::vector<Network::ScoreVertexPair> moves;
+        for (auto i=0; i < BOARD_SQUARES; i++) {
+            const auto x = i % BOARD_SIZE;
+            const auto y = i / BOARD_SIZE;
+            const auto vertex = state->board.get_vertex(x, y);
+            if (state->board.get_square(vertex) == FastBoard::EMPTY) {
+                moves.emplace_back(result.policy[i], vertex);
+            }
+        }
+        moves.emplace_back(result.policy_pass, FastBoard::PASS);
+
         std::stable_sort(rbegin(moves), rend(moves));
 
         auto cum = 0.0f;
@@ -1006,7 +1048,7 @@ void Network::fill_input_plane_pair(const FullBoard& board,
                                     BoardPlane& black, BoardPlane& white) {
     auto idx = 0;
     for (auto j = 0; j < BOARD_SIZE; j++) {
-        for(auto i = 0; i < BOARD_SIZE; i++) {
+        for (auto i = 0; i < BOARD_SIZE; i++) {
             const auto vtx = board.get_vertex(i, j);
             const auto color = board.get_square(vtx);
             if (color != FastBoard::EMPTY) {
@@ -1048,7 +1090,7 @@ void Network::gather_features(const GameState* const state, NNPlanes & planes) {
     }
 }
 
-int Network::rotate_nn_idx(const int vertex, int symmetry) {
+int Network::get_nn_idx_symmetry(const int vertex, int symmetry) {
     assert(vertex >= 0 && vertex < BOARD_SQUARES);
     assert(symmetry >= 0 && symmetry < 8);
     auto x = vertex % BOARD_SIZE;

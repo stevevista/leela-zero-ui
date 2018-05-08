@@ -1,6 +1,6 @@
 /*
     This file is part of Leela Zero.
-    Copyright (C) 2017 Gian-Carlo Pascutto
+    Copyright (C) 2017-2018 Gian-Carlo Pascutto
 
     Leela Zero is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -19,11 +19,14 @@
 #ifndef UCTSEARCH_H_INCLUDED
 #define UCTSEARCH_H_INCLUDED
 
+#include <list>
 #include <atomic>
 #include <memory>
 #include <string>
 #include <tuple>
+#include <future>
 
+#include "ThreadPool.h"
 #include "FastBoard.h"
 #include "FastState.h"
 #include "GameState.h"
@@ -56,7 +59,7 @@ private:
 
 namespace TimeManagement {
     enum enabled_t {
-        AUTO = -1, OFF = 0, ON = 1
+        AUTO = -1, OFF = 0, ON = 1, FAST = 2
     };
 };
 
@@ -79,6 +82,14 @@ public:
     */
     static constexpr auto MAX_TREE_SIZE =
         (sizeof(void*) == 4 ? 25'000'000 : 100'000'000);
+
+    /*
+        Value representing unlimited visits or playouts. Due to
+        concurrent updates while multithreading, we need some
+        headroom within the native type.
+    */
+    static constexpr auto UNLIMITED_PLAYOUTS =
+        std::numeric_limits<int>::max() / 2;
 
     UCTSearch(GameState& g);
     int think(int color, passflag_t passflag = NORMAL);
@@ -113,6 +124,8 @@ private:
     std::atomic<bool> m_run{false};
     int m_maxplayouts;
     int m_maxvisits;
+
+    std::list<Utils::ThreadGroup> m_delete_futures;
 };
 
 class UCTWorker {

@@ -14,7 +14,7 @@ option(NO_GUI "NOT Use GUI to monitor playing" OFF)
 option(NO_GPU "NOT Use GPU" OFF)
 
 FIND_PACKAGE(Threads REQUIRED)
-
+find_package(ZLIB REQUIRED)
 
 SET(Boost_MIN_VERSION "1.58.0")
 set(Boost_USE_MULTITHREADED ON)
@@ -25,7 +25,7 @@ FIND_PACKAGE(Boost 1.58.0 REQUIRED program_options)
 FIND_PACKAGE(OpenCL)
 
 if (NOT OpenCL_FOUND)
-add_definitions(-DFEATURE_USE_CPU_ONLY)
+add_definitions(-DUSE_CPU_ONLY)
 endif()
 
 FIND_PACKAGE(BLAS REQUIRED)
@@ -69,8 +69,9 @@ if(APPLE)
     INCLUDE_DIRECTORIES("/System/Library/Frameworks/Accelerate.framework/Versions/Current/Headers")
 endif()
 
+include_directories(${ZLIB_INCLUDE_DIRS})
 
-SET(COMMON_LIBS ${CMAKE_THREAD_LIBS_INIT} ${BLAS_LIBRARIES})
+SET(COMMON_LIBS ${CMAKE_THREAD_LIBS_INIT} ${BLAS_LIBRARIES} ${ZLIB_LIBRARIES})
 
 
 if(MSVC)
@@ -138,6 +139,7 @@ SET(LZ_SRC src/lz/Network.cpp
             src/lz/OpenCL.cpp
             src/lz/SGFParser.cpp
             src/lz/SGFTree.cpp
+            src/lz/Training.cpp
             src/lz/fix/ladder.cpp)
 
 

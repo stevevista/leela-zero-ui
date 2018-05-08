@@ -1,5 +1,6 @@
 /*
     This file is part of Leela Zero.
+    Copyright (C) 2017-2018 Gian-Carlo Pascutto and contributors
 
     Leela Zero is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -69,7 +70,7 @@
  * faster if you have a recent GPU. Don't use it on CPUs even if they have
  * OpenCL drivers - the BLAS version is much faster for those.
  */
-#ifndef FEATURE_USE_CPU_ONLY
+#ifndef USE_CPU_ONLY
 #define USE_OPENCL
 #endif
 /*
@@ -79,7 +80,7 @@
 //#define USE_TUNER
 
 #define PROGRAM_NAME "Leela Zero"
-#define PROGRAM_VERSION "0.13"
+#define PROGRAM_VERSION "0.14"
 
 /*
  * OpenBLAS limitation: the default configuration on some Linuxes
@@ -91,7 +92,12 @@
 #define MAX_CPUS 128
 #endif
 
+#ifdef USE_HALF
+#include "half/half.hpp"
+using net_t = half_float::half;
+#else
 using net_t = float;
+#endif
 
 #if defined(USE_BLAS) && defined(USE_OPENCL) && !defined(USE_HALF)
 // If both BLAS and OpenCL are fully usable, then check the OpenCL

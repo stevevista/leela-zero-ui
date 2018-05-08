@@ -1,6 +1,6 @@
 /*
     This file is part of Leela Zero.
-    Copyright (C) 2017 Gian-Carlo Pascutto
+    Copyright (C) 2017-2018 Gian-Carlo Pascutto and contributors
 
     Leela Zero is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -32,12 +32,68 @@
 #include "GTP.h"
 
 Utils::ThreadPool thread_pool;
+/*
+bool Utils::input_pending(void) {
+#ifdef HAVE_SELECT
+    fd_set read_fds;
+    FD_ZERO(&read_fds);
+    FD_SET(0,&read_fds);
+    struct timeval timeout{0,0};
+    select(1,&read_fds,nullptr,nullptr,&timeout);
+    return FD_ISSET(0, &read_fds);
+#else
+    static int init = 0, pipe;
+    static HANDLE inh;
+    DWORD dw;
 
+    if (!init) {
+        init = 1;
+        inh = GetStdHandle(STD_INPUT_HANDLE);
+        pipe = !GetConsoleMode(inh, &dw);
+        if (!pipe) {
+            SetConsoleMode(inh, dw & ~(ENABLE_MOUSE_INPUT | ENABLE_WINDOW_INPUT));
+            FlushConsoleInputBuffer(inh);
+        }
+    }
 
+    if (pipe) {
+        if (!PeekNamedPipe(inh, nullptr, 0, nullptr, &dw, nullptr)) {
+            myprintf("Nothing at other end - exiting\n");
+            exit(EXIT_FAILURE);
+        }
 
+        return dw;
+    } else {
+        if (!GetNumberOfConsoleInputEvents(inh, &dw)) {
+            myprintf("Nothing at other end - exiting\n");
+            exit(EXIT_FAILURE);
+        }
+
+        return dw > 1;
+    }
+    return false;
+#endif
+}
+*/
 static std::mutex IOmutex;
+/*
+void Utils::myprintf(const char *fmt, ...) {
+    if (cfg_quiet) {
+        return;
+    }
+    va_list ap;
+    va_start(ap, fmt);
+    vfprintf(stderr, fmt, ap);
+    va_end(ap);
 
-
+    if (cfg_logfile_handle) {
+        std::lock_guard<std::mutex> lock(IOmutex);
+        va_start(ap, fmt);
+        vfprintf(cfg_logfile_handle, fmt, ap);
+        va_end(ap);
+    }
+}
+*/
 static void gtp_fprintf(FILE* file, const std::string& prefix,
                         const char *fmt, va_list ap) {
     fprintf(file, "%s ", prefix.c_str());
